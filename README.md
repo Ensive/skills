@@ -18,4 +18,4 @@ This repository holds the 13 owned agent skills for TypeScript agent runtimes. F
 | [typescript-security-auditor](typescript-security-auditor/) | TypeScript Security Auditor | Reviews TypeScript and Node.js for OWASP risks such as injection, prototype pollution, SSRF, secret exposure, and unsafe dependencies. |
 | [program-performance-optimizer](program-performance-optimizer/) | Program Performance Optimizer | Measures bottlenecks before ranking and applying I/O, caching, and batching improvements that preserve correctness and security. |
 
-The handoff map follows in a later change.
+Start with the [skill router](docs/router.md) to choose a skill. Use the [cross-skill boundary table](docs/boundaries.md) when work changes owners, and the [new-skill checklist](docs/add-a-skill.md) when adding a folder.
