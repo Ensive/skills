@@ -11,6 +11,59 @@ Choose the lane that matches the work, then open the linked skill. Summaries par
 | [secure-filesystem-access](../secure-filesystem-access/SKILL.md) | Implements safe agent and CLI file access with workspace boundaries, path and symlink checks, race defenses, bounded reads, and scoped caches. |
 | [observability-designer](../observability-designer/SKILL.md) | Gives CLI, loop, model, and tool layers consistent structured logs, correlation IDs, metrics, trace boundaries, and shared redaction. |
 
+### Agentic Loop Engineer
+
+**Use this when:** You are building the model/tool execution loop, fixing repeated calls or runaway history, choosing parallel versus dependent execution, shaping tool failures, or setting token budgets and stop conditions. This skill owns tool argument/validation failure classification and tool-class backoff; validation failures are non-retryable.
+
+**Hand off:**
+
+- [llm-client-architect](../llm-client-architect/SKILL.md): Handle provider HTTP 429/5xx, HTTP retry/backoff, and shared log redaction.
+- [tool-registry-architect](../tool-registry-architect/SKILL.md): Define tool schemas and capability flags, and use the registry error taxonomy with the shared normalized result contract.
+- [prompt-engineer](../prompt-engineer/SKILL.md): Write prompt wording and assign message roles.
+- [observability-designer](../observability-designer/SKILL.md): Define the per-iteration NDJSON log fields.
+- [integration-tester](../integration-tester/SKILL.md): Exercise the loop through fake transport tests that share the canonical agent types.
+- [typescript-cli-architect](../typescript-cli-architect/SKILL.md): Map CLI exit codes or consult the reference composition chain for a new agent CLI.
+
+Source: [agentic-loop-engineer/SKILL.md](../agentic-loop-engineer/SKILL.md); [agentic-loop-engineer/reference.md](../agentic-loop-engineer/reference.md).
+
+### Tool Registry Architect
+
+**Use this when:** You are adding tools, validating model arguments before handlers run, gating read/write/exec/network capabilities, propagating cancellation through per-tool timeouts, or normalizing tool results. Registry validation returns a shaped, non-retryable failure.
+
+**Hand off:**
+
+- [agentic-loop-engineer](../agentic-loop-engineer/SKILL.md): Use the canonical tool-call/result types and let the loop classify results and decide recovery.
+- [secure-filesystem-access](../secure-filesystem-access/SKILL.md): Implement filesystem handlers with the shared path and bounded-read helpers from its reference contract.
+- [llm-client-architect](../llm-client-architect/SKILL.md): Reuse the shared redaction rules for invocation logs.
+- [prompt-engineer](../prompt-engineer/SKILL.md): Review model-visible schema and capability descriptions as prompt text.
+- [integration-tester](../integration-tester/SKILL.md): Test the full loop and registry wiring.
+
+Source: [tool-registry-architect/SKILL.md](../tool-registry-architect/SKILL.md).
+
+### Secure Filesystem Access
+
+**Use this when:** You are implementing or fixing file-read, write, list, or delete tools; path traversal or symlink defenses; race-resistant opens; workspace isolation; or file size and type policies. This is the implementation owner for the path guard.
+
+**Hand off:**
+
+- [typescript-security-auditor](../typescript-security-auditor/SKILL.md): After the filesystem pipeline exists, perform the wider OWASP review and translate threat-coverage gaps into severity-ranked OWASP/CWE findings.
+- [program-performance-optimizer](../program-performance-optimizer/SKILL.md): Measure whether a hot read path warrants the scoped realpath cache before adding it.
+
+Source: [secure-filesystem-access/SKILL.md](../secure-filesystem-access/SKILL.md); [secure-filesystem-access/reference.md#scoped-realpath-cache-perf-safe](../secure-filesystem-access/reference.md#scoped-realpath-cache-perf-safe); [secure-filesystem-access/reference.md#threat-coverage-template](../secure-filesystem-access/reference.md#threat-coverage-template).
+
+### Observability Designer
+
+**Use this when:** You need consistent logs, metrics, or traces across the CLI, loop, model client, and tools; correlation across one invocation; stable aggregator fields; or normalized timestamps and IDs for golden output.
+
+**Hand off:**
+
+- [llm-client-architect](../llm-client-architect/SKILL.md): Implement or import the shared safeBody redactor and instrument model request start/end events.
+- [agentic-loop-engineer](../agentic-loop-engineer/SKILL.md): Emit iteration start/end events with tool counts, token usage, and duration from the loop.
+- [tool-registry-architect](../tool-registry-architect/SKILL.md): Emit tool-call start/end events with the tool, call ID, outcome, and duration.
+- [integration-tester](../integration-tester/SKILL.md): Use normalized timestamps and IDs in integration golden comparisons.
+
+Source: [observability-designer/SKILL.md](../observability-designer/SKILL.md).
+
 ## Model I/O
 
 | Skill | Description |
