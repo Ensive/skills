@@ -144,3 +144,25 @@ Source: [typescript-cli-architect/SKILL.md](../typescript-cli-architect/SKILL.md
 - [typescript-cli-architect](../typescript-cli-architect/SKILL.md): Coordinate explicit argv overrides with parseArgs and follow the reference composition order; precedence is argv, then env, then schema defaults.
 
 Source: [config-and-env-designer/SKILL.md](../config-and-env-designer/SKILL.md).
+
+### TypeScript Unit Tester
+
+**Use this when:** You are testing isolated TypeScript modules, parsers, or pure functions, choosing Bun/Vitest, controlling time and randomness, or adding boundary mocks and characterization tests before a refactor.
+
+**Hand off:**
+
+- [integration-tester](../integration-tester/SKILL.md): Move full agent/CLI flows, fake LLM transports, golden transcripts, and golden CLI output to the integration suite.
+
+Source: [typescript-unit-tester/SKILL.md](../typescript-unit-tester/SKILL.md).
+
+### Integration Tester
+
+**Use this when:** You need an end-to-end prompt/model/tool/final-answer scenario, a scripted or fake LLM transport, tool fixtures, golden agent transcripts or CLI output, or control of ordering and timing flakes. This skill owns the fake transport and golden transcript; the harness verifies that all scripted steps were consumed.
+
+**Hand off:**
+
+- [typescript-unit-tester](../typescript-unit-tester/SKILL.md): Test pure helpers separately and reuse its deterministic time, randomness, and environment practices.
+- [secure-filesystem-access](../secure-filesystem-access/SKILL.md): Isolate test workspaces and temporary directories per scenario.
+- [agentic-loop-engineer](../agentic-loop-engineer/SKILL.md): Import the shared NormalizedToolCall and LlmResponse types for the scripted transport.
+
+Source: [integration-tester/SKILL.md](../integration-tester/SKILL.md).
