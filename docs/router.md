@@ -110,3 +110,37 @@ Source: [prompt-engineer/SKILL.md](../prompt-engineer/SKILL.md).
 | [typescript-refactoring-architect](../typescript-refactoring-architect/SKILL.md) | Preserves behavior while improving TypeScript module boundaries, reuse, dependency direction, and public APIs through tested mechanical changes. |
 | [typescript-security-auditor](../typescript-security-auditor/SKILL.md) | Reviews TypeScript and Node.js for OWASP risks such as injection, prototype pollution, SSRF, secret exposure, and unsafe dependencies. |
 | [program-performance-optimizer](../program-performance-optimizer/SKILL.md) | Measures bottlenecks before ranking and applying I/O, caching, and batching improvements that preserve correctness and security. |
+
+### TypeScript CLI Architect
+
+**Use this when:** You are building or restructuring a Node/Bun entrypoint, parsing flags or subcommands, fixing exits/signals/broken pipes, supporting CI and non-TTY output, or packaging a compiled CLI.
+
+**Hand off:**
+
+The [reference composition chain](../typescript-cli-architect/reference.md#composition-chain-new-ts-agent-cli) orders assembly of a new agent CLI. Its destinations below apply to that broader task; a focused CLI edit uses the relevant boundary.
+
+- [agentic-loop-engineer](../agentic-loop-engineer/SKILL.md): Implement agent tool orchestration behind the CLI and use the runner stage of the composition chain.
+- [config-and-env-designer](../config-and-env-designer/SKILL.md): For a new agent CLI, start the composition chain with a validated config schema, separate secrets, and fail-fast loading.
+- [llm-client-architect](../llm-client-architect/SKILL.md): In the composition chain, build the provider adapter that emits the shared normalized types.
+- [prompt-engineer](../prompt-engineer/SKILL.md): In the composition chain, write the system prompt, tool preamble, and refusals.
+- [tool-registry-architect](../tool-registry-architect/SKILL.md): In the composition chain, define tool schemas, capability flags, and per-tool timeouts.
+- [secure-filesystem-access](../secure-filesystem-access/SKILL.md): In the composition chain, implement filesystem-capable tools with the shared FS helpers.
+- [observability-designer](../observability-designer/SKILL.md): In the composition chain, wire NDJSON logging and correlation with the shared redactor.
+- [typescript-unit-tester](../typescript-unit-tester/SKILL.md): At the test stage of the composition chain, cover pure functions and parsers.
+- [integration-tester](../integration-tester/SKILL.md): At the integration stage of the composition chain, cover fake-model end-to-end transcripts and goldens.
+- [typescript-security-auditor](../typescript-security-auditor/SKILL.md): Finish the composition chain with the security review before release.
+- [typescript-refactoring-architect](../typescript-refactoring-architect/SKILL.md): For maintenance, refactor first, then re-enter the composition chain at its unit, integration, and audit passes.
+
+Source: [typescript-cli-architect/SKILL.md](../typescript-cli-architect/SKILL.md); [typescript-cli-architect/reference.md#composition-chain-new-ts-agent-cli](../typescript-cli-architect/reference.md#composition-chain-new-ts-agent-cli).
+
+### Config and Env Designer
+
+**Use this when:** You are introducing environment variables or config files, validating typed configuration at startup, separating secrets from feature flags, defining defaults/profiles, or fixing configuration that fails only after deployment.
+
+**Hand off:**
+
+- [llm-client-architect](../llm-client-architect/SKILL.md): Feed provider keys and endpoints into the client and check secret names against its logging redaction.
+- [secure-filesystem-access](../secure-filesystem-access/SKILL.md): Pass workspace roots to the filesystem implementation.
+- [typescript-cli-architect](../typescript-cli-architect/SKILL.md): Coordinate explicit argv overrides with parseArgs and follow the reference composition order; precedence is argv, then env, then schema defaults.
+
+Source: [config-and-env-designer/SKILL.md](../config-and-env-designer/SKILL.md).
