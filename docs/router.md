@@ -71,6 +71,34 @@ Source: [observability-designer/SKILL.md](../observability-designer/SKILL.md).
 | [llm-client-architect](../llm-client-architect/SKILL.md) | Builds provider adapters with HTTP timeouts, retries, model fallback, streaming, and secret redaction. |
 | [prompt-engineer](../prompt-engineer/SKILL.md) | Writes role-specific prompts with output contracts, examples, reasoning boundaries, tool instructions, and refusal behavior. |
 
+### LLM Client Architect
+
+**Use this when:** You are adding or changing a provider HTTP adapter, handling rate limits and fallback, streaming responses, or redacting credentials. Provider HTTP 429/5xx retries belong here, including backoff, jitter, and Retry-After handling.
+
+**Hand off:**
+
+- [agentic-loop-engineer](../agentic-loop-engineer/SKILL.md): Handle tool-class retries, history, and termination; use its shared normalized call/result types at the adapter boundary.
+- [prompt-engineer](../prompt-engineer/SKILL.md): Author prompt wording.
+- [config-and-env-designer](../config-and-env-designer/SKILL.md): Load base URL, default model, and headers through centralized configuration.
+- [integration-tester](../integration-tester/SKILL.md): Exercise injected transport/fetch hooks in integration tests.
+- [observability-designer](../observability-designer/SKILL.md): Reuse the exported safeBody function in the shared observability layer.
+
+Source: [llm-client-architect/SKILL.md](../llm-client-architect/SKILL.md).
+
+### Prompt Engineer
+
+**Use this when:** You are writing or revising role-based messages, strict output contracts, tool-use instructions, examples, reasoning visibility, or refusal behavior.
+
+**Hand off:**
+
+- [agentic-loop-engineer](../agentic-loop-engineer/SKILL.md): Implement loop orchestration and history mechanics.
+- [llm-client-architect](../llm-client-architect/SKILL.md): Implement provider HTTP behavior and retry policy.
+- [tool-registry-architect](../tool-registry-architect/SKILL.md): Define tool schemas and capability allowlists; prompt instructions describe behavior without duplicating the registry gates.
+- [integration-tester](../integration-tester/SKILL.md): Cross-check tool names in examples against the actual registry fixtures.
+- [typescript-security-auditor](../typescript-security-auditor/SKILL.md): Review the broader threat model for injection and tool-mediated exfiltration.
+
+Source: [prompt-engineer/SKILL.md](../prompt-engineer/SKILL.md).
+
 ## TypeScript delivery
 
 | Skill | Description |
