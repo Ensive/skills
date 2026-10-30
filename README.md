@@ -33,3 +33,7 @@ This repository holds the 13 owned agent skills for TypeScript agent runtimes. F
 These skills are Markdown instructions and illustrative code patterns. Apply them to the conventions of your target project, run its checks, and review security-sensitive changes before deployment. The collection has not been validated across every agent host, provider, or operating system.
 
 The router, boundary table, and FAQ were prepared with AI assistance from the tracked skill files. The FAQ contains maintainer-written explanations. Each skill and its reference files remain the source of truth for its scope. The usage walkthrough illustrates selection and verification expectations; results must be measured in the target project.
+
+## License
+
+[MIT](LICENSE) — Copyright (c) 2026 Anton Honcharuk.
