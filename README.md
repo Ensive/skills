@@ -2,6 +2,16 @@
 
 This repository holds the 13 owned agent skills for TypeScript agent runtimes. Folder names listed in `.gitignore` are local skill installs and are not part of this repository.
 
+## Start here
+
+- [Using the skills](docs/usage.md): get a copy, choose a skill, and follow a worked routing example.
+- [Skill router](docs/router.md): choose by task across agent runtime, model I/O, and TypeScript delivery.
+- [Boundary table](docs/boundaries.md): find the next skill when work crosses a boundary.
+- [Maintainer FAQ](docs/maintainer-faq.md): understand the implementation/audit, retry, and testing splits.
+- [Adding a skill](docs/add-a-skill.md): give a new skill a distinct trigger and keep the map current.
+
+## Skill index
+
 | Folder | Skill name | Description |
 | --- | --- | --- |
 | [agentic-loop-engineer](agentic-loop-engineer/) | Agentic Loop Engineer | Builds bounded agent tool loops with execution ordering, tool-error recovery, history budgets, and explicit stopping conditions. |
@@ -18,4 +28,12 @@ This repository holds the 13 owned agent skills for TypeScript agent runtimes. F
 | [typescript-security-auditor](typescript-security-auditor/) | TypeScript Security Auditor | Reviews TypeScript and Node.js for OWASP risks such as injection, prototype pollution, SSRF, secret exposure, and unsafe dependencies. |
 | [program-performance-optimizer](program-performance-optimizer/) | Program Performance Optimizer | Measures bottlenecks before ranking and applying I/O, caching, and batching improvements that preserve correctness and security. |
 
-Start with the [skill router](docs/router.md) to choose a skill. Use the [cross-skill boundary table](docs/boundaries.md) when work changes owners, and the [new-skill checklist](docs/add-a-skill.md) when adding a folder.
+## Status and provenance
+
+These skills are Markdown instructions and illustrative code patterns. Apply them to the conventions of your target project, run its checks, and review security-sensitive changes before deployment. The collection has not been validated across every agent host, provider, or operating system.
+
+The router, boundary table, and FAQ were prepared with AI assistance from the tracked skill files. The FAQ contains maintainer-written explanations. Each skill and its reference files remain the source of truth for its scope. The usage walkthrough illustrates selection and verification expectations; results must be measured in the target project.
+
+## License
+
+[MIT](LICENSE) — Copyright (c) 2026 Anton Honcharuk.
