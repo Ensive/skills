@@ -166,3 +166,43 @@ Source: [typescript-unit-tester/SKILL.md](../typescript-unit-tester/SKILL.md).
 - [agentic-loop-engineer](../agentic-loop-engineer/SKILL.md): Import the shared NormalizedToolCall and LlmResponse types for the scripted transport.
 
 Source: [integration-tester/SKILL.md](../integration-tester/SKILL.md).
+
+### TypeScript Refactoring Architect
+
+**Use this when:** You are changing TypeScript structure while preserving behavior: extracting modules or reusable abstractions, untangling dependencies, or moving/renaming public APIs. Pin behavior with characterization tests before taking small mechanical steps.
+
+**Hand off:**
+
+- [typescript-unit-tester](../typescript-unit-tester/SKILL.md): Write characterization tests before changing structure.
+- [integration-tester](../integration-tester/SKILL.md): Run integration coverage after each step, following build, type-check, and unit tests.
+- [typescript-security-auditor](../typescript-security-auditor/SKILL.md): Review security-sensitive changes and proposed removal of validation, capability gates, or path guards.
+- [secure-filesystem-access](../secure-filesystem-access/SKILL.md): Preserve the filesystem implementation and move path checks with the code that needs them.
+- [program-performance-optimizer](../program-performance-optimizer/SKILL.md): Run the performance pass when the refactor touches hot paths or calls for performance work.
+- [typescript-cli-architect](../typescript-cli-architect/SKILL.md): Consult the reference composition chain when deciding the target layering.
+
+Source: [typescript-refactoring-architect/SKILL.md](../typescript-refactoring-architect/SKILL.md).
+
+### TypeScript Security Auditor
+
+**Use this when:** You need a TypeScript/Node security review, threat model, OWASP/CWE mapping, or examination of dependencies, outbound HTTP, uploads, shell execution, secrets, or prototype pollution. Audit an existing filesystem pipeline here; implement or fix its path guard through the filesystem skill.
+
+**Hand off:**
+
+- [secure-filesystem-access](../secure-filesystem-access/SKILL.md): Implement or repair safe file opens and path guards, and verify filesystem race/TOCTOU concerns with the canonical pipeline.
+- [program-performance-optimizer](../program-performance-optimizer/SKILL.md): Consult performance work without weakening security; its high ROI risk is a performance concern unless a guard was removed.
+- [agentic-loop-engineer](../agentic-loop-engineer/SKILL.md): Use the loop error code, FS layer, and non-retryable classification as evidence when aligning the audit finding.
+- [typescript-cli-architect](../typescript-cli-architect/SKILL.md): Consult the reference composition chain to place the audit as the final review for a new agent CLI.
+
+Source: [typescript-security-auditor/SKILL.md](../typescript-security-auditor/SKILL.md).
+
+### Program Performance Optimizer
+
+**Use this when:** You need to investigate latency, CPU, memory, or slow agent reads, or assess caching, batching, pooling, and parallel I/O. Measure a baseline and profile hot paths first, then rank changes by impact, effort, and risk; preserve validation and security checks.
+
+**Hand off:**
+
+- [secure-filesystem-access](../secure-filesystem-access/SKILL.md): After measuring slow file reads, implement its request/turn-scoped realpath cache, invalidated on writes or root changes, while retaining prefix, realpath, and fd-stat checks.
+- [typescript-security-auditor](../typescript-security-auditor/SKILL.md): Check that performance work preserves correctness, authorization, and security.
+- [agentic-loop-engineer](../agentic-loop-engineer/SKILL.md): Address history pruning for token cost and respect dependency ordering before parallelizing tool work.
+
+Source: [program-performance-optimizer/SKILL.md](../program-performance-optimizer/SKILL.md).
