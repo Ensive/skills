@@ -11,6 +11,10 @@ description: >-
 
 # TypeScript Security Auditor
 
+## Project discovery
+
+Read applicable project instructions, manifests, nearby code/tests and CI. Discover paths, runtime, contracts, data restrictions and commands with working directories. Preserve existing stack choices; adapt the examples to those conventions. Use a reversible step when context is incomplete; ask only when behavior or authorization blocks it. Optional neighbors are not prerequisites.
+
 ## When to use
 
 - User requests a security review or threat model for a TS/Node service or CLI.
@@ -37,7 +41,7 @@ description: >-
 
 - [ ] Enumerate all input surfaces (HTTP, CLI, tools, env, files, child stdin).
 - [ ] Check SQL/NoSQL/command/template injection; confirm parameterization or escaping.
-- [ ] Check path operations: reject `..` (also `%2e%2e` and other percent-encodings), NUL and control bytes `0x00`–`0x1F`, absolute paths outside allowlist roots, Windows `:` alternate streams; normalize to NFC before comparisons. Implementation lives in secure-filesystem-access.
+- [ ] Check path operations against the transport and OS contract: decode once only if the input boundary is encoded; reject traversal outside allowed roots, NUL and disallowed control bytes. Preserve literal filename identity, including percent signs and Unicode normalization; NFC is not a security boundary. Check Windows alternate streams only where that platform applies. Use secure-filesystem-access for containment implementation and mutable-ancestor limitations.
 - [ ] Check `Object.assign`, spread, and `JSON.parse` on untrusted data for prototype pollution.
 - [ ] Check outbound `fetch`/`http` for SSRF: block metadata IPs, file URLs, internal ranges.
 - [ ] Check authN/authZ on every mutating route; verify session/token binding and expiry.
@@ -57,11 +61,11 @@ const row = await db.query("SELECT * FROM users WHERE id = $1", [userId]);
 
 **Safe path join under workspace root**
 
-Do not reimplement here. Call `assertInsideRoot` + `realpath` from secure-filesystem-access; that skill owns the canonical pipeline (resolve, prefix guard, realpath re-check, fd-stat). Inlining a partial guard in audited code is itself a finding.
+Review the project's existing filesystem guard; optional secure-filesystem-access guidance owns implementation recipes, not an importable runtime. Assess the actual threat model and supported OS primitives; an fd stat alone does not prove containment across mutable ancestor directories.
 
 **Safe parse before merge (prototype pollution)**
 
-`JSON.parse` drops `__proto__` in modern Node; risk is merging parsed objects onto prototypes or class instances.
+`JSON.parse` preserves an own `__proto__` key. Risk arises when later merging into objects with prototype setters or otherwise traversing attacker-controlled keys. Validate allowed fields before use.
 
 ```typescript
 const parsed = JSON.parse(raw) as unknown;
@@ -75,6 +79,8 @@ const safe = MySchema.parse(parsed); // Zod/TypeBox — preferred
 ```typescript
 const host = new URL(url).hostname;
 if (isPrivateOrMetadataHost(host)) throw new Error("blocked host");
+// Sketch only: also constrain scheme/port, resolve and validate all addresses,
+// enforce the selected destination at connect time, and recheck every redirect.
 ```
 
 **Secret from env only**
@@ -122,8 +128,8 @@ When combining outputs from sibling skills, normalize to this audit's severity s
 
 | Source skill | Source field | Maps to |
 |--------------|--------------|---------|
-| secure-filesystem-access | `done/gap` + exploit path | high or medium |
-| secure-filesystem-access | `gap` on write/TOCTOU/symlink | high |
+| secure-filesystem-access | `done/gap` + exploit path | assess impact, attacker control and likelihood |
+| secure-filesystem-access | `gap` on write/TOCTOU/symlink | severity depends on reachable threat boundary |
 | program-performance-optimizer | ROI Risk = high | medium (perf), not security unless guard removed |
 | agentic-loop-engineer | Error code, Retryable=no + FS layer | align with finding above |
 | Informational hardening only | — | low or info |
@@ -137,3 +143,16 @@ Do not merge FS threat tables verbatim into Findings; translate each `gap` row i
 - Ask whether third-party APIs or user-uploaded files are in scope before deep SSRF/upload review.
 - Proceed with static review when code is available; flag dynamic tests needed for race/TOCTOU items (see secure-filesystem-access).
 - For new TS agent CLIs, run this auditor as the final review pass in `typescript-cli-architect/reference.md`.
+
+## Tools and verification
+
+Use existing tools and synthetic fixtures within the task's authorization. If execution is unavailable, provide the check and mark it unexecuted. Report changed artifacts, assumptions, exact commands/cwd, results and remaining gaps; verify the affected success/failure boundary and project conventions. Examples do not authorize downloads or external mutations.
+
+## Handoffs
+
+Required sibling skills: none. Local references are implementation examples, included with this skill.
+
+- Optional: `secure-filesystem-access` — Implement containment using the transport/OS filename contract; document race and platform limitations.
+- Optional: `program-performance-optimizer` — Assess performance without weakening security.
+- Optional: `agentic-loop-engineer` — Check tool-error recovery against the threat model.
+- Optional: `typescript-cli-architect` — Review CLI process and stream boundaries when present.

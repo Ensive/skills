@@ -1,77 +1,32 @@
-# Secure Filesystem Access — reference
+# Filesystem implementation limits and recipes
 
-Supplemental patterns moved here to keep `SKILL.md` token-light. Implement exports in `src/fs/workspace.ts` (path configurable).
+## Project contract
 
-## `resolveInside` (tool-registry import contract)
+Choose the existing filesystem module. `resolveInside(root, raw)` and `readBounded(path, cap)` in [SKILL.md](SKILL.md) are Node implementation examples, not required exports or proof of containment under concurrent attackers. No sibling skill is a required dependency.
 
-```typescript
-import path from "node:path";
-import fs from "node:fs/promises";
-// normalizePathForTrust, assertInsideRoot from SKILL.md Patterns
+## Writes and mutable directories
 
-export async function resolveInside(workspaceRoot: string, raw: string): Promise<string> {
-  const resolved = assertInsideRoot(workspaceRoot, raw);
-  const real = await fs.realpath(resolved);
-  assertInsideRoot(workspaceRoot, real);
-  return real;
-}
+A parent `realpath` check plus `O_NOFOLLOW` on the leaf does not prevent ancestor replacement. `fstat` on a followed symlink reports its target; it cannot prove that no symlink was followed. Opening with `O_TRUNC` can destroy content before post-open checks run.
 
-export { readBounded } from "./read-bounded"; // bounded read loop in SKILL.md
-```
+For attacker-mutable trees, select an OS containment strategy with verified semantics: descriptor-relative traversal with appropriate no-follow/beneath constraints, a restricted process/container filesystem, or a trusted service owning all mutation. Node's portable path API is not a complete equivalent of Linux `openat2` containment. If the required primitive is unavailable, fail closed for the unsafe operation and report the limitation.
 
-## Safe write (parent realpath, O_NOFOLLOW)
+For trusted directories, create a new temporary file with exclusive creation in the verified target directory, bounded content and intended permissions; flush according to durability requirements, then atomically replace only under the application's overwrite policy. Atomic rename is not itself an authorization or containment guarantee. Test failures before/after creation and cleanup. Keep existing file content intact on validation failure.
 
-```typescript
-import { constants as C } from "node:fs";
+## Scoped realpath cache (conditional)
 
-async function openForWrite(workspaceRoot: string, target: string) {
-  const resolved = assertInsideRoot(workspaceRoot, target);
-  const parent = path.dirname(resolved);
-  const realParent = await fs.promises.realpath(parent);
-  assertInsideRoot(workspaceRoot, realParent);
-  const final = path.join(realParent, path.basename(resolved));
-  const flags = C.O_WRONLY | C.O_CREAT | C.O_TRUNC |
-    (C.O_NOFOLLOW ?? 0) | (C.O_CLOEXEC ?? 0);
-  return fs.promises.open(final, flags, 0o600);
-}
-```
-
-`O_NOFOLLOW` is honored on the final path component on POSIX; missing on Windows (constant absent → `?? 0`). After open, re-`fstat` the fd and reject symlinks (`!st.isFile()`).
-
-## Scoped realpath cache (perf-safe)
-
-For hot read paths, cache `realpath` results keyed by the *normalized* input path and scoped to one request/turn. Drop the cache when the workspace root changes or when any write occurs. Never persist across requests; never share across users.
-
-```typescript
-function makeRealpathCache(workspaceRoot: string) {
-  const cache = new Map<string, string>();
-  return {
-    async resolveInside(raw: string): Promise<string> {
-      const key = normalizePathForTrust(raw);
-      const cached = cache.get(key);
-      if (cached) return cached;
-      const resolved = assertInsideRoot(workspaceRoot, key);
-      const real = await fs.promises.realpath(resolved);
-      assertInsideRoot(workspaceRoot, real);
-      cache.set(key, real);
-      return real;
-    },
-    invalidate(): void { cache.clear(); },
-  };
-}
-```
-
-See `program-performance-optimizer` for when to add this cache; never skip prefix guards or fd-stat.
+Consider a cache only after measuring and proving directory/link stability for its lifetime. Request scope alone does not protect against an external writer changing a link during that request. Key by canonical root and input identity; bound entries, invalidate on controlled mutation/root change, and never share across tenants. If external mutation is possible, omit the cache or use a trusted filesystem snapshot. Optional help: program-performance-optimizer for measurement.
 
 ## Threat coverage template
 
-| Threat | Mitigation | Status |
-|--------|------------|--------|
-| Traversal | NFC + decode + resolve + prefix + realpath | done/gap |
-| Symlink escape | realpath + re-assert prefix | done/gap |
-| TOCTOU read | open + fstat + bounded read loop | done/gap |
-| TOCTOU write | parent realpath + O_NOFOLLOW + fd-stat | done/gap |
-| Unicode homoglyphs | NFC before compare | done/gap |
-| Double percent-encoding | decode twice check | done/gap |
+| Threat | Evidence required | Status |
+| --- | --- | --- |
+| Traversal and absolute paths | Target-OS path cases; transport decoding cases | verified / gap / out of scope |
+| Symlink or hard-link exposure | Actual allowed link policy and adversarial fixtures | verified / gap / out of scope |
+| Mutable ancestors | OS containment or explicit trusted-tree assumption | verified / gap / out of scope |
+| Oversize/growing files | Cap + one-byte detection; cleanup on failure | verified / gap / out of scope |
+| Unsafe writes | No truncation before validation; overwrite and cleanup tests | verified / gap / out of scope |
+| Filename identity | Literal percent, Unicode, drive/case behavior on target OS | verified / gap / out of scope |
 
-Map `done/gap` with exploit path to auditor severities: `typescript-security-auditor` § Cross-skill reporting.
+Map reachable gaps to impact/likelihood with optional typescript-security-auditor help for TypeScript systems. Do not infer severity from a checkbox alone.
+
+Source checked 2026-10-30: [Node filesystem documentation](https://nodejs.org/api/fs.html). The snippets are bounded examples, not a certified sandbox or a tested Windows implementation.

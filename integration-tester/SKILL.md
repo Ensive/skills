@@ -1,174 +1,41 @@
 ---
 name: integration-tester
-description: >-
-  Builds integration and end-to-end tests for agent systems using fake LLM transports,
-  scripted LLM, fixture-driven tool harnesses, golden-file diffs, and flake control.
-  Use when testing "agent e2e", tool loops, tool executor, test harness, golden files,
-  "fake LLM", "fake transport", "scripted transport", or full CLI integration flows.
-  Not for isolated unit tests of pure functions — use typescript-unit-tester.
+description: Design and run deterministic integration tests across real application boundaries in TypeScript or Python, including UI interactions, API contracts, agent flows and stream cancellation. Use for wiring regressions, scripted transports, replay and golden comparisons; exclude isolated helper tests and live-model quality evaluation.
 ---
 
 # Integration Tester
 
 ## When to use
 
-- User tests full agent loop: prompt, model response, tool execution, final answer.
-- User needs fake LLM transport instead of live API in CI.
-- User builds fixture JSON for tool inputs/outputs and expected transcripts.
-- User compares CLI or agent output to golden files across versions.
-- User fights flaky integration tests, ordering issues, or timing races.
+Test behavior crossing modules, browser/API boundaries, persistence or an agent transport. Own the scenario, fixture, harness and observable assertions. Isolated TypeScript helpers belong to typescript-unit-tester; probabilistic model quality needs a separate evaluation design. A publishing site can use this workflow without a backend or model.
 
-## Core principles
+## Discover and decide
 
-1. Integration tests exercise real wiring with fakes only at external boundaries (LLM, network).
-2. Fake transport returns scripted message sequences deterministically.
-3. Tool harness uses fixtures for registry handlers; no live filesystem unless temp sandbox.
-4. Golden files are reviewed intentionally; update only with explicit diff review.
-5. Control time, randomness, and env the same way as typescript-unit-tester.
-6. Isolate temp dirs per test; unique workspace roots (see secure-filesystem-access).
-7. Assert on structured events (tool calls, exit codes), not full prose when possible.
-8. Retry only for known infra flakes; default zero retries for agent transcripts.
-9. Keep tests parallel-safe with separate temp roots and env overrides.
-10. Unit-test pure helpers separately; do not duplicate unit coverage here.
+Read applicable project instructions, manifests, lockfiles, CI and nearby tests before naming files or commands. Find the actual public seam and schemas. Record target behavior, expected state, command/cwd, data restrictions and external systems that may be replaced. Reuse the installed runner; language alone does not select Vitest or pytest.
 
-## Checklist
+Default to synthetic inputs, injected time and external-boundary fakes. Missing credentials do not block offline testing. Ask only when desired behavior or authority to touch a shared service cannot be established; continue local harness work.
 
-- [ ] Define scenario: user message in, expected tools called, expected final state.
-- [ ] Implement `FakeLlmTransport` with queue of assistant/tool messages.
-- [ ] Register fixture tool handlers returning canned success/error payloads.
-- [ ] Run agent runner with `MAX_ITERATIONS` low enough to fail fast on loops.
-- [ ] Pass `AbortSignal` from harness; include at least one scenario that aborts mid-loop (SIGINT/cancel) and assert clean stop.
-- [ ] Capture transcript artifact: messages, tool calls, timings (optional).
-- [ ] Compare to golden with stable normalization (paths, timestamps stripped).
-- [ ] Use temp directory per test; cleanup in `afterEach`.
-- [ ] Set env via test harness, not developer `.env`.
-- [ ] Serialize tests only when sharing global resource is unavoidable. Vitest: `test.sequential` or `describe.sequential`. bun:test: chain assertions inside one `describe` with shared setup/teardown (no `@serial` annotation exists in either runner).
-- [ ] Call `transport.assertExhausted()` in `afterEach`. An agent that exits early leaves scripted steps unconsumed; without this assertion the test silently passes.
-- [ ] Document how to refresh goldens: one command, requires human review.
+## Workflow
 
-## Patterns
+1. Produce a **scenario table**: initial state, action, boundary, expected output/state and failure case. Include a negative case that must not call a provider or create infrastructure.
+2. Keep application wiring real. Fake external nondeterminism; isolate temporary files, dependency overrides and database transactions per test. Use project domain types, not types imported from this catalog.
+3. Implement a **test pack** using the relevant recipe: [TypeScript](references/typescript.md), [Python/FastAPI](references/python.md) or [browser/publishing](references/browser.md). Reject unexpected fake calls and verify consumed steps; cancelled runs assert the expected unconsumed remainder.
+4. For streams, test fragmented frames, cancellation, partial failure and terminal-state delivery. Assert no post-cancel side effect, released resources and no duplicate action on replay. In-process cancellation is not real socket-disconnect coverage.
+5. Compare semantic fields and ordering constraints. Normalize only nondeterministic IDs/times; preserve identity relationships, units, errors and event order. Review golden diffs before acceptance. Schema validity alone is insufficient.
+6. Run the discovered focused command and relevant project checks. Produce **verification evidence**: exact cwd/commands, results, fixtures and gaps. Live-provider smoke tests and model evaluations are separate, authorized suites.
 
-**Fake LLM transport (with drain assertion)**
+## Tools and acceptance
 
-```typescript
-type ScriptedStep = { role: "assistant"; content: string; toolCalls?: NormalizedToolCall[] };
+Repository read access supports a plan; editing and test execution use host permissions. Use installed dependencies and temporary resources. If a runtime/browser/service is unavailable, deliver runnable tests and the missing prerequisite, labelled unexecuted. Do not silently contact paid providers, migrate shared databases or update goldens.
 
-function toLlmResponse(step: ScriptedStep): LlmResponse {
-  const toolCalls = step.toolCalls ?? [];
-  return {
-    stopReason: toolCalls.length > 0 ? "tool_use" : "end_turn",
-    toolCalls,
-    text: step.content,
-  };
-}
+Accept when real wiring exercises the intended path and a representative failure, early/extra scripted calls fail, resources are cleaned up, and no real credentials are needed. Watch for fakes bypassing the code under test, sleeps hiding races, snapshots erasing order and ASGI tests presented as network proof.
 
-export class FakeLlmTransport {
-  private index = 0;
-  constructor(private readonly queue: readonly ScriptedStep[]) {}
+## Handoffs
 
-  async complete(): Promise<LlmResponse> {
-    const step = this.queue[this.index++];
-    if (!step) throw new Error(`unexpected complete() call #${this.index}`);
-    return toLlmResponse(step);
-  }
+Required sibling skills: none. Optional help is loaded only for a crossed boundary, when available.
 
-  get remaining(): number { return this.queue.length - this.index; }
-
-  assertExhausted(): void {
-    if (this.remaining !== 0) {
-      throw new Error(`transport has ${this.remaining} unused scripted steps`);
-    }
-  }
-}
-```
-
-Import `NormalizedToolCall` and `LlmResponse` from the project types module (default `src/agent/types.ts`; definitions in `agentic-loop-engineer/reference.md`).
-
-**Fixture tool registry**
-
-```typescript
-registry.register("read_file", async (input) => {
-  return fixtures.readFile[input.path] ?? { error: "file_not_found" };
-});
-```
-
-**Golden diff with normalization (runner-agnostic)**
-
-`toMatchFileSnapshot` is Vitest-only. Use a small helper that works under Vitest, bun:test, or node:test:
-
-```typescript
-import { readFile, writeFile, mkdir } from "node:fs/promises";
-import { dirname } from "node:path";
-
-function stableStringify(value: unknown): string {
-  return JSON.stringify(value, (_k, v) =>
-    v && typeof v === "object" && !Array.isArray(v)
-      ? Object.fromEntries(Object.entries(v as object).sort(([a], [b]) => a.localeCompare(b)))
-      : v, 2);
-}
-
-export async function assertGolden(actual: unknown, goldenPath: string): Promise<void> {
-  const serialized = stableStringify(actual);
-  if (process.env.UPDATE_GOLDENS === "1") {
-    await mkdir(dirname(goldenPath), { recursive: true });
-    await writeFile(goldenPath, serialized + "\n");
-    return;
-  }
-  const expected = await readFile(goldenPath, "utf8");
-  if (serialized + "\n" !== expected) {
-    throw new Error(`golden mismatch: ${goldenPath}\nrun with UPDATE_GOLDENS=1 after review`);
-  }
-}
-
-const actual = normalizePaths(stripTimestamps(await runScenario()));
-await assertGolden(actual, "goldens/agent-basic.json");
-```
-
-**Temp workspace per test**
-
-```typescript
-const root = await mkdtemp(path.join(os.tmpdir(), "agent-test-"));
-afterEach(async () => rm(root, { recursive: true, force: true }));
-```
-
-## Anti-patterns
-
-- **Live API keys in CI integration tests** — cost and flake; use fake transport.
-- **Asserting exact LLM prose wording** — brittle; assert structure and tool args.
-- **Shared golden file mutated by parallel tests** — races; one temp root per test.
-- **Fake transport without a drain check** — agents that exit early leave the queue partially consumed; the test passes for the wrong reason. Always call `assertExhausted()` (or assert `remaining === expected`) in teardown.
-- **Sleep-based synchronization** — flake; await explicit promises or events.
-- **Oversized golden files with noise** — review burden; normalize and trim.
-- **Re-testing pure parsers here** — slow suite; unit test instead.
-
-## Output format
-
-```markdown
-# Integration test pack: <feature>
-
-## Scenarios
-### <name>
-- Input: <user message / argv>
-- Scripted model steps: <count>
-- Expected tools: <name, args>
-- Expected exit/output: <summary>
-
-## Fixtures
-- `<path>`: <purpose>
-
-## Goldens
-- `<path>`: update via `<command>`
-
-## CI
-- Command: `<cmd>`
-- Env: <vars set in test>
-
-## Flake controls
-- <timers, retries, serial flags>
-```
-
-## Escalation
-
-- Ask whether live API smoke tests are required outside CI (nightly only).
-- Ask golden update policy if large diffs expected after prompt changes.
-- Proceed with fake transport when provider is unspecified.
+- Optional: `typescript-unit-tester` — Test an isolated TypeScript helper.
+- Optional: `secure-filesystem-access` — Repair a production filesystem guard.
+- Optional: `agentic-loop-engineer` — Repair loop ordering, retries or termination.
+- Optional: `llm-client-architect` — Repair provider transport or partial-stream behavior.
+- Optional: `frontend-contract-engineer` — Repair UI state ownership or accessible interactions.

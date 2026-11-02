@@ -1,0 +1,11 @@
+# Verification layers
+
+`python3 -m unittest discover -s tests -v` checks catalog metadata/resources, derived routing, invalid dependency graphs and installation lifecycle in temporary directories. It also runs the three synthetic fixture suites when their runtimes exist; missing optional Python fixture dependencies are reported as skips. Node 22.6+ is needed for its TypeScript fixture (type stripping, not typechecking). Install requirements-test.txt only into an isolated environment when needed.
+
+The fixtures are newly authored, synthetic and small. GenUI-shaped directories reflect publicly observed package boundaries, but do not execute GenUI Lab itself. Python tests exercise real FastAPI/HTTPX in-process wiring; they do not prove live sockets, SSO, database pools, model APIs or Kubernetes. Writing checks parse HTML and preserve content; browser layout/keyboard/assistive technology need separate execution.
+
+The [public GenUI context](genui-public-context.md) records its actual package paths, runner, commands and milestone limitations. It intentionally differs from the small executable fixture's dependency-free runner; the shared workflow discovers either project's conventions.
+
+`scenarios.json` is a **model evaluation dataset**, not a deterministic routing oracle. Its structural coverage test only ensures positive, adjacent and missing-context cases exist for each full migration. To evaluate behavior, give a fresh assistant the request, relevant installed skill and minimal project context. Save its output, exact commands and artifacts; score with [the evaluation protocol](evaluation.md). Do not count matching words in SKILL.md as evidence of correct behavior.
+
+`test_recipes.py` extracts executable TypeScript from the owned Markdown and exercises public error handling, authorization, cancellation and graceful/forced signal exits with synthetic dependencies. It checks behavior rather than pinning prose. Node type stripping does not check types or establish Zod/provider compatibility. Signal tests require POSIX; full runs include the bounded five-second forced shutdown paths. Repository tooling support starts at Python 3.12. See [compatibility](../docs/compatibility.md) for runtime smoke-test limits. Keep run-specific reviews and raw outputs in ignored `docs/reviews/`, `.artifacts/` or temporary directories.

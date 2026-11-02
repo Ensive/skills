@@ -12,6 +12,10 @@ description: >-
 
 # Program Performance Optimizer
 
+## Project discovery
+
+Read applicable project instructions, manifests, nearby code/tests and CI. Discover paths, runtime, contracts, data restrictions and commands with working directories. Preserve existing stack choices; adapt the examples to those conventions. Use a reversible step when context is incomplete; ask only when behavior or authorization blocks it. Optional neighbors are not prerequisites.
+
 ## When to use
 
 - User reports slow CLI, agent loop, API handler, or batch job.
@@ -19,8 +23,8 @@ description: >-
 - User considers caching, pooling, parallel I/O, or removing await chains.
 - User wants ROI-ranked changes before a large refactor.
 - User proposes skipping validation or security checks for speed (must refuse).
-- User wants faster agent file-read tools without dropping path guards — load secure-filesystem-access and apply only its scoped realpath cache; never remove prefix guards, `realpath`, or fd-stat.
-- User asks to speed up reads without weakening security — measure first (this skill), then implement the per-request cache from secure-filesystem-access; refuse shortcuts that skip validation.
+- User wants faster agent file-read tools without dropping path guards — optionally consult secure-filesystem-access and assess its conditional cache only when directory stability is established; preserve the filesystem security contract.
+- User asks to speed up reads without weakening security — measure first (this skill), then assess the conditional cache from secure-filesystem-access; refuse shortcuts that skip validation.
 
 ## Core principles
 
@@ -97,7 +101,7 @@ const stream = createReadStream(path, { highWaterMark: 64 * 1024 });
 - **Sync `readFileSync` on request path** — blocks event loop; use async/stream.
 - **Unbounded in-memory caches** — OOM; cap entries and bytes.
 - **Removing authZ or path checks for speed** — vulnerability; reject change.
-- **Removing `realpath`, prefix guards, or fd-stat from FS tools for speed** — symlink and TOCTOU regressions; reject. Use the scoped `realpath` cache pattern in secure-filesystem-access (per-request, invalidated on writes) to recover the cost safely.
+- **Removing `realpath`, prefix guards, or fd-stat from FS tools for speed** — symlink and TOCTOU regressions; reject. Consult secure-filesystem-access before caching; per-request invalidation cannot account for external directory mutation.
 - **Micro-optimizing cold paths** — noise; focus on proven hotspots.
 - **Parallelizing without understanding ordering** — races; see agentic-loop-engineer.
 
@@ -132,6 +136,18 @@ const stream = createReadStream(path, { highWaterMark: 64 * 1024 });
 
 ## Escalation
 
-- Ask target SLO (p95 ms, memory cap) if missing.
-- Ask whether correctness-critical paths may change behavior.
+- Discover the target SLO; a missing target does not block collecting a baseline and identifying a bottleneck.
+- Preserve correctness unless a behavior change is explicitly in scope; resolve only necessary tradeoffs.
 - Refuse proposals that skip security validation; offer safe alternatives.
+
+## Tools and verification
+
+Use existing tools and synthetic fixtures within the task's authorization. If execution is unavailable, provide the check and mark it unexecuted. Report changed artifacts, assumptions, exact commands/cwd, results and remaining gaps; verify the affected success/failure boundary and project conventions. Examples do not authorize downloads or external mutations.
+
+## Handoffs
+
+Required sibling skills: none. Local references are implementation examples, included with this skill.
+
+- Optional: `secure-filesystem-access` — Assess measured path-cache changes against filesystem threat assumptions.
+- Optional: `typescript-security-auditor` — Review changed TypeScript security boundaries.
+- Optional: `agentic-loop-engineer` — Address agent history budgets and dependency ordering.

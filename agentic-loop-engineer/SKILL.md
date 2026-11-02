@@ -7,12 +7,16 @@ description: >-
   building an agent runner, agent harness, ReAct loop, tool dispatcher, "tool
   loop", "max iterations", "parallel tool calls", "why is my agent looping",
   tool errors, or "when to stop the agent". HTTP 429/5xx and provider retries:
-  llm-client-architect only. Tool argument/validation failures and tool-class
-  backoff: this skill only. For tool schema and capability flags see
+  llm-client-architect only. Tool-result recovery and tool-class
+  backoff belong here; argument validation, schemas and capability flags belong to
   tool-registry-architect.
 ---
 
 # Agentic Loop Engineer
+
+## Project discovery
+
+Read applicable project instructions, manifests, nearby code/tests and CI. Discover paths, runtime, contracts, data restrictions and commands with working directories. Preserve existing stack choices; adapt the examples to those conventions. Use a reversible step when context is incomplete; ask only when behavior or authorization blocks it. Optional neighbors are not prerequisites.
 
 ## When to use
 
@@ -25,16 +29,16 @@ description: >-
 ## Core principles
 
 1. Cap iterations explicitly; every loop has a max count and a no-progress breaker.
-2. Terminate on explicit terminal tool, structured "done" flag, or user abort only.
+2. Terminate on the project’s explicit completion signal, cancellation, exhausted budget/cap, no-progress breaker or unrecoverable failure; report the actual reason.
 3. Run independent tools in parallel; serialize when outputs are inputs to next step.
-4. Retry transient failures with exponential backoff and jitter; never retry validation errors.
+4. Retry only failures known safe to repeat within a total deadline and attempt cap; a timeout can leave an unknown side effect. Never automatically retry invalid arguments.
 5. Return tool errors as structured, concise strings; omit internal paths unless policy allows.
 6. Trim or summarize history when approaching context limits; preserve system + latest user goal.
 7. Deduplicate identical tool calls within the same turn when safe.
 8. Record token usage per iteration for budget alerts and downgrade paths.
 9. Make termination conditions testable without live LLM calls when possible.
 10. Keep prompts and roles in prompt-engineer; provider HTTP and HTTP-layer retry/backoff in llm-client-architect.
-11. Use one shared types module (default path `src/agent/types.ts`; full definitions in `reference.md`). llm-client-architect, tool-registry-architect, and integration-tester import the same module — do not redefine fields in adapters or handlers.
+11. Reuse the target project’s tool-call/result contracts. [reference.md](reference.md) contains a TypeScript example, not mandatory types or a directory layout. Provider adapters and tools agree at that project boundary.
 
 ## Checklist
 
@@ -46,12 +50,12 @@ description: >-
 - [ ] Append tool results immediately after assistant tool_use messages (API ordering rules).
 - [ ] Prune or summarize messages before each LLM call when over token threshold.
 - [ ] Expose abort via AbortSignal wired from SIGINT or cancel API.
-- [ ] Emit per-iteration NDJSON logs per observability-designer (`correlation_id`, `iteration`, `event`, `component`); reuse redaction from llm-client-architect.
+- [ ] Emit iteration/terminal events through the project’s observability contract; choose sink and redaction there. NDJSON is a CLI example.
 - [ ] Add integration tests with fake transport (see integration-tester).
 
 ## Patterns
 
-Canonical type definitions and the full error-code table live in `reference.md`. Create the types file before wiring the loop.
+Example TypeScript contracts and error mapping live in [reference.md](reference.md). Discover existing types before adding a module. The snippets below are sketches requiring project-specific helpers.
 
 **Iteration cap with abort**
 
@@ -105,7 +109,9 @@ function registerProgress(toolCalls: NormalizedToolCall[]): void {
 }
 ```
 
-**Dedupe identical calls within one turn**
+**Dedupe identical calls within one turn (read-only example)**
+
+Only coalesce operations whose semantics permit it. Preserve a result for every original call ID, including duplicates; dropping IDs breaks provider message pairing. Never deduplicate mutations merely because their arguments match. This helper identifies representatives; the caller must fan results back to all original IDs.
 
 ```typescript
 function dedupeToolCalls(calls: NormalizedToolCall[]): NormalizedToolCall[] {
@@ -126,7 +132,8 @@ function dedupeToolCalls(calls: NormalizedToolCall[]): NormalizedToolCall[] {
 ```typescript
 type ToolOutcome = "success" | "retryable" | "fatal" | "user_input_required";
 
-const RETRYABLE_CODES = new Set(["timeout", "transient"]);
+// Candidate categories only: the caller must also establish safe repetition.
+const RETRYABLE_CODES = new Set(["transient"]);
 
 function parseToolError(result: NormalizedToolResult): string | undefined {
   if (!result.isError) return undefined;
@@ -149,12 +156,14 @@ function classify(result: NormalizedToolResult): ToolOutcome {
 async function runWithRetry(
   tc: NormalizedToolCall,
   run: () => Promise<NormalizedToolResult>,
+  safeToRepeat: boolean,
 ): Promise<NormalizedToolResult> {
+  // Sketch: project sleep must support cancellation and the remaining deadline.
   let attempt = 0;
   while (attempt < MAX_TOOL_RETRIES) {
     const result = await run();
     const outcome = classify(result);
-    if (outcome !== "retryable") return result;
+    if (outcome !== "retryable" || !safeToRepeat) return result;
     await sleep(delayMs(attempt++));
   }
   return { id: tc.id, content: JSON.stringify({ error: "transient", message: "retries exhausted" }), isError: true };
@@ -206,7 +215,22 @@ Canonical taxonomy and registry mapping: tool-registry-architect § Error taxono
 
 ## Escalation
 
-- Greenfield agent/CLI order: `typescript-cli-architect/reference.md` (composition chain).
-- Ask provider tool-call format (Anthropic, OpenAI, custom) if message shape is unknown.
-- Ask required latency vs cost tradeoff before aggressive parallelization.
+- Optional CLI composition example: typescript-cli-architect, only for a new CLI; no sibling is required.
+- Discover message contracts from existing adapters; ask only if the required boundary remains unknown.
+- Use conservative bounded execution; resolve latency/cost tradeoffs only if the requested change depends on them.
 - Proceed with conservative caps when limits unspecified; document assumptions.
+
+## Tools and verification
+
+Use existing tools and synthetic fixtures within the task's authorization. If execution is unavailable, provide the check and mark it unexecuted. Report changed artifacts, assumptions, exact commands/cwd, results and remaining gaps; verify the affected success/failure boundary and project conventions. Examples do not authorize downloads or external mutations.
+
+## Handoffs
+
+Required sibling skills: none. Local references are implementation examples, included with this skill.
+
+- Optional: `llm-client-architect` — Own provider HTTP retries and protocol translation.
+- Optional: `tool-registry-architect` — Own schemas, invocation authorization and result classification.
+- Optional: `prompt-engineer` — Own prompt wording and roles.
+- Optional: `observability-designer` — Define event correlation and export policy.
+- Optional: `integration-tester` — Verify loop behavior through real wiring.
+- Optional: `typescript-cli-architect` — Map terminal outcomes to CLI exits when a CLI exists.
