@@ -1,241 +1,41 @@
 ---
 name: llm-client-architect
-description: >-
-  Designs provider-abstracted LLM clients for OpenAI-compatible APIs including
-  OpenRouter, with timeouts, jittered retries, Retry-After honoring, model fallback,
-  streaming, and secret redaction in logs. Use when wiring API clients, "OpenRouter",
-  HTTP retries, Retry-After, rate limit, streaming tokens, or "redact API key in
-  logs". For tool-class retry classification and loop termination, see
-  agentic-loop-engineer. Not for agent loop orchestration, tool schemas, or
-  filesystem path guards.
+description: Design TypeScript or Python provider adapters with explicit model capabilities, bounded retries, cancellation, streaming, fallback and usage attribution. Use when wiring or repairing model API clients; exclude prompt wording, tool execution policy and general application SSE unrelated to models.
 ---
 
 # LLM Client Architect
 
 ## When to use
 
-- User adds or refactors HTTP client code for chat/completions APIs.
-- User integrates OpenRouter, Anthropic-compatible gateways, or local OpenAI shims.
-- User needs timeouts, retries, rate-limit handling, or fallback model chains.
-- User implements streaming SSE or chunked responses to stdout/UI.
-- User logs requests and must redact Authorization headers and API keys.
+Implement or repair a model-provider boundary. Own protocol translation, request budgets, capabilities, provider errors and raw usage attribution. The application owns domain state; the client does not define tool authorization or loop termination.
 
-## Core principles
+## Discover and decide
 
-1. One thin adapter per provider; shared types for messages, tools, and usage metadata.
-2. OpenAI-compatible base URL + paths as default; override only where spec diverges.
-3. Every request has connect and response timeouts; abort via AbortSignal end-to-end.
-4. Retry 429 and 5xx with exponential backoff, jitter, and Retry-After respect.
-5. Model fallback is ordered list; fail over only on retryable errors, not 4xx validation.
-6. Streaming: parse frames incrementally; surface tokens via async iterable callback.
-7. Never log raw API keys; redact `Authorization`, `api-key`, and query tokens.
-8. Normalize errors into `{ code, message, retryable }` for agentic-loop-engineer.
-9. Record latency, model id, and token usage on every completion for budgets.
-10. Prompt wording stays in prompt-engineer; loop orchestration and tool-class retry policy in agentic-loop-engineer.
-11. Adapters emit the normalized tool-call/result shape declared in agentic-loop-engineer; do not leak provider field names (`tool_calls`, `tool_use`) past the adapter boundary.
+Read applicable instructions, existing adapters/types, manifests/lockfiles, fake transports, deployment constraints and approved providers. Verify the installed SDK and official provider contract before changing wire formats. Record modalities, tools, structured output, streaming, context limits, residency and latency/cost constraints.
 
-## Checklist
+Reuse the existing provider/SDK when suitable. OpenAI-compatible HTTP is an example, never a default for an unspecified provider. If selection is unresolved, implement the internal boundary and fake transport; ask only for provider/data-transfer decisions that block integration. Missing credentials do not block offline tests.
 
-- [ ] Define `LlmClient` interface: `complete`, `stream`, optional `embed`.
-- [ ] Centralize base URL, default model, and headers from config-and-env-designer.
-- [ ] Set `fetch` timeout or AbortController per attempt.
-- [ ] Implement retry policy table: which status codes retry, max attempts.
-- [ ] Implement fallback chain with logging of which model succeeded.
-- [ ] Parse streaming protocol for provider (SSE data lines, JSON chunks).
-- [ ] Map provider-specific tool_call blocks to internal normalized shape.
-- [ ] Redact secrets in debug logs and error attachments.
-- [ ] Handle empty choices, truncated JSON, and context-length errors distinctly.
-- [ ] Expose hooks for tests: inject `fetch` mock (see integration-tester).
+## Workflow
 
-## Patterns
+1. Produce an **adapter contract** in project types: messages, tool calls, deltas, terminal states, errors and usage. Translate provider fields at the adapter, not the registry. Define a capability map with evidence/version and explicit unsupported states.
+2. Define a **resilience table** by operation/error: retry eligibility, attempt cap, total deadline, connect/read limits, cancellation and idempotency. Account for SDK retries so layers do not multiply attempts. Auth, invalid arguments and unsupported capabilities do not automatically retry or switch models.
+3. Respect Retry-After. If its delay exceeds the remaining deadline, stop or schedule later rather than clamping it downward. Cancellation interrupts requests and backoff. A timeout may have incurred cost or side effects; uncertainty does not establish retry safety.
+4. Define **stream transitions**: unopened → active → completed/failed/cancelled. Parse incrementally with bounded buffers/backpressure and close resources. After partial delivery, surface an incomplete result; restart/fallback needs application policy preventing duplicate text, actions and charges. Read [transport recipes](references/transports.md).
+5. Fallback only to approved models satisfying capabilities, privacy/residency and quality constraints. Preserve attempted/selected IDs. Capture usage per attempt, reconcile terminal totals and distinguish unknown/estimated/reported. Cost estimates need a dated pricing source.
+6. Produce **implementation and tests**: injected transports, fragmented/malformed frames, deadlines, cancellation during request/backoff, exhausted attempts, unsupported models, partial output and missing usage. Read [provider verification](references/providers.md). Report exact commands/results and unverified live behavior.
 
-**Normalized error shape (required for loop + fallback)**
+## Tools and acceptance
 
-```typescript
-export type LlmError = { code: string; message: string; retryable: boolean };
+Needs repository reading and existing runtime/test tools. Without documentation access, preserve known contracts and label unresolved APIs. Paid calls, credentials, external deployment and data transfer require authorization beyond a fake test.
 
-export async function toLlmError(res: Response): Promise<LlmError> {
-  const retryable = res.status === 429 || res.status >= 500;
-  let message = res.statusText;
-  try {
-    const body = (await res.json()) as { error?: { message?: string } };
-    message = body.error?.message ?? message;
-  } catch { /* non-JSON body */ }
-  return {
-    code: `http_${res.status}`,
-    message,
-    retryable,
-  };
-}
-```
+Accept when project types are preserved, unsupported capabilities fail explicitly, time/attempts/buffering are bounded, cancellation releases resources and partial work never restarts silently. Test synthetic secrets in errors/headers; prefer allowlisted metadata to arbitrary-body redaction.
 
-4xx validation errors (except 429): `retryable: false`. Context-length and auth failures: `retryable: false`.
+## Handoffs
 
-**OpenAI-compatible client skeleton**
+Required sibling skills: none.
 
-```typescript
-type ChatRequest = { model: string; messages: unknown[]; tools?: unknown[] };
-type ChatResponse = LlmResponse; // from project types module — see agentic-loop-engineer/reference.md
-
-type LlmClient = {
-  complete(req: ChatRequest, opts?: { signal?: AbortSignal }): Promise<ChatResponse>;
-  stream(req: ChatRequest, opts?: StreamOpts): AsyncIterable<ChatDelta>;
-};
-
-function asLlmError(e: unknown): LlmError {
-  if (e && typeof e === "object" && "retryable" in e && "code" in e) return e as LlmError;
-  return { code: "unknown", message: e instanceof Error ? e.message : String(e), retryable: false };
-}
-
-async function postJson(url: string, body: unknown, init: RequestInit) {
-  const res = await fetch(url, {
-    ...init,
-    headers: { "Content-Type": "application/json", ...init.headers },
-    body: JSON.stringify(body),
-    signal: init.signal,
-  });
-  if (!res.ok) throw await toLlmError(res);
-  return res.json();
-}
-
-async function postJsonWithRetry(
-  url: string,
-  body: unknown,
-  init: RequestInit,
-  opts: { maxAttempts: number; baseMs: number; maxMs: number },
-): Promise<unknown> {
-  let lastRes: Response | undefined;
-  for (let attempt = 0; attempt < opts.maxAttempts; attempt++) {
-    const res = await fetch(url, {
-      ...init,
-      headers: { "Content-Type": "application/json", ...init.headers },
-      body: JSON.stringify(body),
-      signal: init.signal,
-    });
-    if (res.ok) return res.json();
-    lastRes = res;
-    const err = await toLlmError(res);
-    if (!err.retryable || attempt === opts.maxAttempts - 1) throw err;
-    await new Promise((r) => setTimeout(r, delayFor(res, attempt, opts)));
-  }
-  throw await toLlmError(lastRes!);
-}
-```
-
-**Delay with Retry-After + jittered backoff**
-
-```typescript
-function parseRetryAfter(res: Response): number | undefined {
-  const h = res.headers.get("retry-after");
-  if (!h) return undefined;
-  const secs = Number(h);
-  if (Number.isFinite(secs)) return Math.max(0, secs * 1000);
-  const date = Date.parse(h);
-  return Number.isFinite(date) ? Math.max(0, date - Date.now()) : undefined;
-}
-
-function delayFor(res: Response | undefined, attempt: number, opts: {
-  baseMs: number; maxMs: number;
-}): number {
-  const expo = opts.baseMs * 2 ** attempt * (0.5 + Math.random() * 0.5);
-  const hinted = res ? parseRetryAfter(res) : undefined;
-  return Math.min(opts.maxMs, Math.max(expo, hinted ?? 0));
-}
-```
-
-**Redacted headers and body**
-
-Place in `src/llm/redact.ts` (path configurable). Export `safeHeaders` and `safeBody`; `observability-designer` imports `safeBody` from this module.
-
-```typescript
-const SECRET_HEADERS = new Set([
-  "authorization", "proxy-authorization", "cookie", "set-cookie",
-  "api-key", "x-api-key", "openai-api-key", "anthropic-api-key",
-  "openai-organization", "x-goog-api-key",
-]);
-const SECRET_KEY_RX = /key|token|secret|password|authorization/i;
-
-export function safeHeaders(h: HeadersInit): Record<string, string> {
-  const out: Record<string, string> = {};
-  for (const [k, v] of new Headers(h)) {
-    out[k] = SECRET_HEADERS.has(k.toLowerCase()) ? "[REDACTED]" : v;
-  }
-  return out;
-}
-
-export function safeBody(value: unknown): unknown {
-  if (Array.isArray(value)) return value.map(safeBody);
-  if (value && typeof value === "object") {
-    const out: Record<string, unknown> = {};
-    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
-      out[k] = SECRET_KEY_RX.test(k) ? "[REDACTED]" : safeBody(v);
-    }
-    return out;
-  }
-  return value;
-}
-```
-
-**Fallback chain (never returns undefined)**
-
-```typescript
-async function completeWithFallback(
-  req: ChatRequest,
-  models: readonly string[],
-): Promise<ChatResponse> {
-  if (models.length === 0) throw new Error("fallback chain is empty");
-  let lastError: LlmError | undefined;
-  for (const model of models) {
-    try {
-      return await complete({ ...req, model });
-    } catch (e) {
-      const err = asLlmError(e);
-      if (!err.retryable) throw err;
-      lastError = err;
-    }
-  }
-  throw lastError ?? new Error("fallback chain exhausted");
-}
-```
-
-## Anti-patterns
-
-- **Hard-coding provider URLs in call sites** — drift; read from config.
-- **Infinite retry on 400** — waste; only retry retryable codes.
-- **Logging full request bodies with secrets** — leakage; redact and truncate.
-- **Buffering entire stream before UI update** — latency; incremental parse.
-- **Different error shapes per call site** — loops cannot recover; normalize errors.
-- **Casting caught errors with `as LlmError`** — mis-classifies failures; use `asLlmError(e)` helper.
-- **Mixing fetch and SDK without abort wiring** — hung requests; one signal path.
-
-## Output format
-
-```markdown
-# LLM client design: <project>
-
-## Interface
-- Methods: <list>
-- Config keys: <env vars>
-
-## Providers
-| Provider | Base URL | Notes |
-|----------|----------|-------|
-
-## Resilience
-- Timeout: <ms>
-- Retries: <policy>
-- Fallback models: <ordered list>
-
-## Streaming
-- Protocol: <SSE/chunk>
-- Consumer API: <signature>
-
-## Logging
-- Redacted fields: <list>
-```
-
-## Escalation
-
-- Ask which providers and whether tools/streaming are required day one.
-- Ask data residency or logging restrictions before choosing hosted gateway.
-- Proceed with OpenAI-compatible adapter when provider list is incomplete.
+- Optional: `agentic-loop-engineer` — Own tool retries, history and run termination.
+- Optional: `prompt-engineer` — Author role messages and output instructions.
+- Optional: `config-and-env-designer` — Load approved endpoints, credentials and model policy.
+- Optional: `integration-tester` — Exercise the client through the service or UI boundary.
+- Optional: `observability-designer` — Own exported telemetry, redaction and cost-reporting semantics.

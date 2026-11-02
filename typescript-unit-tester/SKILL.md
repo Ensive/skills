@@ -1,8 +1,8 @@
 ---
 name: typescript-unit-tester
 description: >-
-  Writes and reviews TypeScript unit tests using bun:test or Vitest with AAA structure,
-  mocks and spies, deterministic time/random/fs, clear naming, and coverage targets.
+  Writes and reviews TypeScript unit tests using the project's existing runner,
+  boundary mocks and deterministic fixtures. Bun and Vitest are implementation examples.
   Use when adding tests, characterization tests, golden characterization before refactor,
   "unit test", "mock", "vitest", "bun test", or "coverage". Not for full agent/CLI
   e2e transcripts, fake LLM transports, or golden CLI output — use integration-tester.
@@ -10,22 +10,21 @@ description: >-
 
 # TypeScript Unit Tester
 
+## Project discovery
+
+Read applicable project instructions, manifests, nearby code/tests and CI. Discover paths, runtime, contracts, data restrictions and commands with working directories. Preserve existing stack choices; adapt the examples to those conventions. Use a reversible step when context is incomplete; ask only when behavior or authorization blocks it. Optional neighbors are not prerequisites.
+
 ## When to use
 
 - User adds or fixes unit tests for TS modules, parsers, or pure functions.
-- User chooses between Bun test runner and Vitest for a project.
+- User explicitly needs a runner choice for a new TypeScript test setup.
 - User needs mocks for `fetch`, filesystem, clock, or randomness.
 - User asks for naming conventions, AAA layout, or coverage goals.
 - User has flaky tests due to timers, dates, or unordered assertions.
 
 ## Runner selection
 
-If both Bun and Vitest configs exist:
-
-1. Prefer the runner already used in colocated `*.test.ts` files (check imports: `bun:test` vs `vitest`).
-2. Else if `bun.lockb` or `bunfig.toml` exists → `bun:test`.
-3. Else if `vitest.config.*` exists → Vitest.
-4. Else ask once; default Vitest for Node-only repos.
+Discover the runner and working directory from the affected package's scripts, CI, configuration and nearby imports. Preserve Jest, node:test or another established runner; the Bun/Vitest recipes below are conditional examples. A package-manager lockfile alone does not identify the test runner. If applicable commands conflict and a runnable test requires a decision, ask that question; meanwhile draft cases from the existing contract.
 
 ## Core principles
 
@@ -47,7 +46,7 @@ If both Bun and Vitest configs exist:
 - [ ] Name tests: `it("does X when Y")` or `test("returns Z given W")`.
 - [ ] Use AAA with single logical assertion group per behavior.
 - [ ] Mock external I/O with `mock`, `spyOn`, or injectable interfaces.
-- [ ] Use fake timers (`vi.useFakeTimers` / Bun equivalent) for scheduled code.
+- [ ] For scheduled code, use the installed runner's supported fake timers or inject a clock; verify cleanup and restoration.
 - [ ] Reset mocks in `afterEach` to prevent bleed across tests.
 - [ ] Avoid real `fetch`; stub with fixed Response objects.
 - [ ] Run coverage locally; note gaps on security and error branches.
@@ -160,6 +159,16 @@ export function expire(ts: number, now: Clock = () => Date.now()) {
 
 ## Escalation
 
-- Ask preferred runner if repo has both Bun and Vitest configs.
-- Ask coverage threshold if CI enforces thresholds.
+- Ask about the runner only if the selection evidence above leaves a consequential ambiguity.
+- Read coverage thresholds from CI/config; ask only if a requested new threshold is unspecified.
 - Proceed with matching existing test file style when convention is visible.
+
+## Tools and verification
+
+Use existing tools and synthetic fixtures within the task's authorization. If execution is unavailable, provide the check and mark it unexecuted. Report changed artifacts, assumptions, exact commands/cwd, results and remaining gaps; verify the affected success/failure boundary and project conventions. Examples do not authorize downloads or external mutations.
+
+## Handoffs
+
+Required sibling skills: none. Local references are implementation examples, included with this skill.
+
+- Optional: `integration-tester` — Verify cross-module, UI/API or full agent/CLI flows using the project's existing runner.

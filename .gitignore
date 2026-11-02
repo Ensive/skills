@@ -25,3 +25,12 @@ wait-what
 wayfinder
 wizard
 writing-for-agents
+
+# Local validation artifacts
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Local session evidence; keep durable guidance and test inputs public.
+/docs/reviews/
+/.artifacts/

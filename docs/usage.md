@@ -27,7 +27,7 @@ and its referenced material for the filesystem implementation.
 Report changed files, checks run, and any unresolved assumptions.
 ```
 
-This direct-file workflow does not depend on a particular editor's skill discovery mechanism. For automatic discovery, use your agent host's documented installation procedure; directory locations and invocation syntax vary by host. Keep the recorded revision with your project notes so later behavior can be traced to the instructions used.
+This direct-file workflow does not depend on a particular editor's skill discovery mechanism. For local assistant discovery, follow the [installation guide](installation.md); directory locations and invocation syntax vary by host. Keep the recorded revision with your project notes so later behavior can be traced to the instructions used.
 
 ## Worked routing example: add a file-read tool
 

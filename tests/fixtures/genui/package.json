@@ -1,0 +1,7 @@
+{
+  "name": "synthetic-genui-fixture",
+  "private": true,
+  "type": "module",
+  "scripts": {"test": "node --experimental-strip-types --test test/flow.test.ts"},
+  "engines": {"node": ">=22.6"}
+}

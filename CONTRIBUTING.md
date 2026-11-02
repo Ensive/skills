@@ -1,0 +1,15 @@
+# Contributing owned skills
+
+Read [AGENTS.md](AGENTS.md), the [router](docs/router.md), [boundaries](docs/boundaries.md) and [new-skill checklist](docs/add-a-skill.md). Preserve existing paths unless a demonstrated trigger/outcome needs a new name. Check [open issues](https://github.com/Ensive/skills/issues) and actual available third-party skill content before adding overlap.
+
+Keep purpose, discovery, workflow, outputs, permissions/fallback, acceptance and handoffs in the entrypoint. Move lengthy recipes into local references and link them conditionally. Copy neither private project context nor third-party skill content into the owned distribution. Use synthetic credentials/data and record provenance.
+
+After editing descriptions, triggers or handoffs, run `python3 scripts/catalog.py --write` and inspect the generated README/router/boundary diff. Then run `python3 scripts/catalog.py` and `python3 -m unittest discover -s tests -v`. Add positive, adjacent-negative and missing-context requests for migrated contracts. Deterministic tests validate packaging and executable fixtures; model evaluations need separate recorded artifacts and a common rubric.
+
+Stage explicit owned paths, never `git add .`: ignored local installations remain untracked. Review the staged diff for private data, generated caches and unexpected files. Do not add a license to contributed or third-party work without the owner's decision and provenance review.
+
+Keep session reviews and handoff notes in ignored `docs/reviews/`, and raw transcripts, logs and generated evaluation outputs in ignored `.artifacts/` or a temporary directory. Public content should contain durable guidance, synthetic test inputs, reproducible evaluation procedures and concise compatibility results. Record follow-up work in GitHub issues with sanitized evidence and acceptance checks; do not duplicate the backlog in a session report. The validator rejects tracked ignored artifacts and public links to excluded files. Ignoring a path does not remove files already committed to Git history.
+
+Before a future release: preserve the MIT notice, verify contribution rights, run checks in a clean checkout, record tested assistant/runtime versions and full commit SHA, and review compatibility changes. Tags and publication are maintainer actions; this repository currently has no automated release process. Preserve names or document migration before removing a skill or changing its contract.
+
+The validator deliberately supports a small authoring profile: `name` and `description` as nonempty strings, JSON double-quoted values, plain prose beginning with a letter, or a description folded with `>`/`>-` and two-space continuation lines. Quote YAML-like scalars and punctuation. Use inline Markdown links without titles, as in the [Python recipe link](integration-tester/references/python.md). Reference-style links are rejected explicitly; every packaged Markdown reference must be reachable from SKILL.md through inline links. This is a repository convention, not a restriction of the Agent Skills standard.

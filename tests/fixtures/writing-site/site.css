@@ -1,0 +1,5 @@
+body { margin: 0; padding: 1.5rem; font: 1.125rem/1.65 Georgia, serif; color: #222; background: #faf8f2; }
+main { max-width: 65ch; margin: 2rem auto; overflow-wrap: anywhere; }
+h1 { line-height: 1.2; font-size: clamp(1.8rem, 5vw, 3rem); }
+a { color: #214a7a; }
+a:focus-visible { outline: 3px solid #214a7a; outline-offset: 4px; }

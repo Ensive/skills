@@ -8,7 +8,7 @@ Use [secure-filesystem-access](../secure-filesystem-access/SKILL.md#when-to-use)
 
 ## Which skill owns an HTTP 429 retry, and which owns a tool validation error?
 
-Use [llm-client-architect](../llm-client-architect/SKILL.md#core-principles) for provider HTTP 429/5xx, including bounded retries, jitter, and `Retry-After`. [tool-registry-architect](../tool-registry-architect/SKILL.md#when-to-use) validates tool arguments before invoking the handler and returns a normalized error. [agentic-loop-engineer](../agentic-loop-engineer/SKILL.md#core-principles) classifies that result and controls recovery; an argument/validation failure is non-retryable. Keep provider retry policy at the HTTP boundary.
+Use [llm-client-architect](../llm-client-architect/SKILL.md#workflow) for provider HTTP 429/5xx, including bounded retries, jitter, and `Retry-After`. [tool-registry-architect](../tool-registry-architect/SKILL.md#when-to-use) validates tool arguments before invoking the handler and returns a normalized error. [agentic-loop-engineer](../agentic-loop-engineer/SKILL.md#core-principles) classifies that result and controls recovery; an argument/validation failure is non-retryable. Keep provider retry policy at the HTTP boundary.
 
 ## Which skill covers a fake LLM transport and a golden transcript?
 

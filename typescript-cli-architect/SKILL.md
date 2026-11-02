@@ -1,15 +1,18 @@
 ---
 name: typescript-cli-architect
 description: >-
-  Architects robust TypeScript CLIs using node:util parseArgs, exit codes, signal
-  handling, stdout/stderr discipline, EPIPE safety, help/version flags, non-TTY
-  behavior, and Bun-compiled single-file binaries. Use when building a CLI, fixing
+  Designs TypeScript CLIs around the existing parser, process lifecycle and output contracts.
+  Includes Node parseArgs and Bun binary examples. Use when building a CLI, fixing
   "exit code", SIGINT handling, argparse, "command-line tool", "parse argv",
   "stderr vs stdout", "broken pipe", "bun build --compile", or distributing a
   single-file binary.
 ---
 
 # TypeScript CLI Architect
+
+## Project discovery
+
+Read applicable project instructions, manifests, nearby code/tests and CI. Discover paths, runtime, contracts, data restrictions and commands with working directories. Preserve existing stack choices; adapt the examples to those conventions. Use a reversible step when context is incomplete; ask only when behavior or authorization blocks it. Optional neighbors are not prerequisites.
 
 ## When to use
 
@@ -22,7 +25,7 @@ description: >-
 
 ## Core principles
 
-1. Use `node:util` `parseArgs` with explicit `options` and `allowPositionals` policy.
+1. Reuse the existing CLI parser. For a new small Node CLI, `node:util` `parseArgs` is an implementation option with explicit options and positional policy.
 2. Reserve exit code 0 for success; use 1 for general errors, 2 for misuse (optional convention).
 3. Handle `SIGINT` and `SIGTERM`: flush, cancel in-flight work, exit once.
 4. Write machine-readable output to stdout; diagnostics and logs to stderr.
@@ -35,7 +38,7 @@ description: >-
 
 ## Checklist
 
-- [ ] Define `parseArgs` schema: booleans, strings, defaults, and positional rules.
+- [ ] Define options, defaults and positional policy using the existing parser; use `parseArgs` as an option for a new small Node CLI.
 - [ ] Print `--help` and `--version` to stdout (GNU-style); keep diagnostics and logs on stderr; document stream choice in `--help` footer.
 - [ ] Implement `--version` from package.json or build metadata without network.
 - [ ] Wrap `main()` in try/catch; set `process.exitCode` instead of scattered `exit()` where possible.
@@ -84,6 +87,7 @@ async function main(): Promise<void> {
 for (const stream of [process.stdout, process.stderr] as const) {
   stream.on("error", (err: NodeJS.ErrnoException) => {
     if (err.code === "EPIPE") process.exit(0);
+    else { process.exitCode = 1; /* report safely or invoke project error handler */ }
   });
 }
 ```
@@ -94,10 +98,15 @@ Install this before any output. Pipelines like `mycli --help | head -n 1` now ex
 
 ```typescript
 const ac = new AbortController();
+let shuttingDown = false;
 for (const sig of ["SIGINT", "SIGTERM"] as const) {
   process.on(sig, () => {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    const exitCode = sig === "SIGINT" ? 130 : 143;
+    process.exitCode = exitCode; // Preserve signal status even when cleanup finishes immediately.
     ac.abort();
-    setTimeout(() => process.exit(130), 5000).unref();
+    setTimeout(() => process.exit(exitCode), 5000).unref();
   });
 }
 ```
@@ -109,7 +118,7 @@ async function main(): Promise<void> { /* ... */ }
 
 main().catch((err) => {
   console.error(err instanceof Error ? err.message : String(err));
-  process.exitCode = 1;
+  process.exitCode ??= 1; // Preserve a signal status already selected by shutdown.
 });
 ```
 
@@ -134,7 +143,7 @@ Shebang for source distribution (npm bin): `#!/usr/bin/env node` or `#!/usr/bin/
 - **Throwing from unhandled promise in CLI** — uncaught rejection; catch at `main`.
 - **Hard-coded `process.exit()` deep in libraries** — untestable; set exitCode at top.
 - **Interactive prompts when stdin is not TTY** — hangs CI; detect TTY first.
-- **Parsing argv with manual `slice` loops** — inconsistent; use `parseArgs`.
+- **Changing parsers during an unrelated fix** — preserve the established option contract; evaluate a new parser only when parsing itself is the requested change.
 
 ## Output format
 
@@ -160,7 +169,27 @@ Shebang for source distribution (npm bin): `#!/usr/bin/env node` or `#!/usr/bin/
 
 ## Escalation
 
-- Ask target runtime (Node vs Bun) and distribution shape (npm bin, compiled binary).
-- Ask whether output must be JSON-only for scripting.
-- Proceed with `parseArgs` defaults when subcommand tree is unspecified; propose subcommand pattern in output.
-- Greenfield agent/CLI boot order and MV stubs: `reference.md` (composition chain).
+- Discover runtime and distribution from package/build configuration; ask only for a new target the task requires.
+- Preserve documented output behavior; clarify a requested incompatible stream-format change if unresolved.
+- Preserve the existing parser; use `parseArgs` as an option for a new small CLI.
+- Optional greenfield agent CLI composition example: [reference.md](reference.md).
+
+## Tools and verification
+
+Use existing tools and synthetic fixtures within the task's authorization. If execution is unavailable, provide the check and mark it unexecuted. Report changed artifacts, assumptions, exact commands/cwd, results and remaining gaps; verify the affected success/failure boundary and project conventions. Examples do not authorize downloads or external mutations.
+
+## Handoffs
+
+Required sibling skills: none. Local references are implementation examples, included with this skill.
+
+- Optional: `agentic-loop-engineer` — Implement orchestration only for an agent CLI.
+- Optional: `config-and-env-designer` — Load validated settings and explicit overrides.
+- Optional: `llm-client-architect` — Wire a model adapter only when needed.
+- Optional: `prompt-engineer` — Write prompt messages only when needed.
+- Optional: `tool-registry-architect` — Define tool invocation contracts for agent tools.
+- Optional: `secure-filesystem-access` — Implement workspace file operations.
+- Optional: `observability-designer` — Design diagnostic events and sinks.
+- Optional: `typescript-unit-tester` — Test parsing helpers and isolated functions with the established parser and runner.
+- Optional: `integration-tester` — Test complete CLI behavior.
+- Optional: `typescript-security-auditor` — Review exposed trust boundaries.
+- Optional: `typescript-refactoring-architect` — Preserve behavior during structural changes.

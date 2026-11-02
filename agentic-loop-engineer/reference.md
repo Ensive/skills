@@ -2,9 +2,9 @@
 
 ## Module placement
 
-Create shared types at a configurable path (default `src/agent/types.ts`). Re-export from one module; sibling skills import the same file — do not redefine fields in adapters.
+Reuse existing project contracts. If none exist, the following TypeScript shapes are an implementation example; choose placement from repository conventions. Skill folders are instructions, not importable runtime modules.
 
-## Canonical types (copy into `src/agent/types.ts`)
+## TypeScript contract example
 
 ```typescript
 export type NormalizedToolCall = {
@@ -41,8 +41,8 @@ Registry error codes (`tool-registry-architect` § Error taxonomy):
 | `invalid_input` | fatal | no |
 | `not_found` | fatal | no |
 | `forbidden` | fatal | no |
-| `timeout` | retryable | yes |
-| `transient` | retryable | yes |
+| `timeout` | uncertain | only after proving repetition safe and reconciling possible effects |
+| `transient` | candidate | only if idempotent or protected by an effective idempotency mechanism |
 | `internal` | fatal | no |
 | `file_not_found`, `path_outside_root` | fatal | no |
 | `user_input_required` | user_input_required | no |

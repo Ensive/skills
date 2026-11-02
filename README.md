@@ -1,39 +1,44 @@
-# Owned agent skills
+# Reusable engineering skills
 
-This repository holds the 13 owned agent skills for TypeScript agent runtimes. Folder names listed in `.gitignore` are local skill installs and are not part of this repository.
+Owned workflows for TypeScript applications, Python AI services, agent runtimes and frontend/publishing work. Start with the target repository's conventions; add only the skills your task needs. No provider, backend, frontend framework or deployment platform is required across the catalog.
 
-## Start here
+1. Start with the [worked usage example](docs/usage.md), or choose a workflow in the [router](docs/router.md). The [boundary table](docs/boundaries.md) and [maintainer FAQ](docs/maintainer-faq.md) explain handoffs.
+2. Keep project facts in existing instructions or the small [context template](docs/project-context.md). Shared skill instructions stay unchanged across projects.
+3. Use the [local installation guide](docs/installation.md) for Codex, Claude Code or Cursor. Install one skill or a selected bundle from a pinned checkout.
+4. Give the assistant a concrete outcome and acceptance criteria, then inspect its evidence and unexecuted checks.
 
-- [Using the skills](docs/usage.md): get a copy, choose a skill, and follow a worked routing example.
-- [Skill router](docs/router.md): choose by task across agent runtime, model I/O, and TypeScript delivery.
-- [Boundary table](docs/boundaries.md): find the next skill when work crosses a boundary.
-- [Maintainer FAQ](docs/maintainer-faq.md): understand the implementation/audit, retry, and testing splits.
-- [Adding a skill](docs/add-a-skill.md): give a new skill a distinct trigger and keep the map current.
+Example: “Use integration-tester to verify cancellation in this service. Follow the repository's test command and use synthetic provider responses.” The same workflow can test a TypeScript UI, a Python API or a static publishing interface by discovering each project's boundaries.
 
-## Skill index
+## Catalog
 
-| Folder | Skill name | Description |
-| --- | --- | --- |
-| [agentic-loop-engineer](agentic-loop-engineer/) | Agentic Loop Engineer | Builds bounded agent tool loops with execution ordering, tool-error recovery, history budgets, and explicit stopping conditions. |
-| [tool-registry-architect](tool-registry-architect/) | Tool Registry Architect | Defines typed tool schemas, capability gates, input validation, timeouts, normalized results, and invocation logs. |
-| [secure-filesystem-access](secure-filesystem-access/) | Secure Filesystem Access | Implements safe agent and CLI file access with workspace boundaries, path and symlink checks, race defenses, bounded reads, and scoped caches. |
-| [observability-designer](observability-designer/) | Observability Designer | Gives CLI, loop, model, and tool layers consistent structured logs, correlation IDs, metrics, trace boundaries, and shared redaction. |
-| [llm-client-architect](llm-client-architect/) | LLM Client Architect | Builds provider adapters with HTTP timeouts, retries, model fallback, streaming, and secret redaction. |
-| [prompt-engineer](prompt-engineer/) | Prompt Engineer | Writes role-specific prompts with output contracts, examples, reasoning boundaries, tool instructions, and refusal behavior. |
-| [typescript-cli-architect](typescript-cli-architect/) | TypeScript CLI Architect | Builds TypeScript command-line interfaces with argument parsing, exit codes, signal handling, reliable streams, and binary packaging. |
-| [config-and-env-designer](config-and-env-designer/) | Config and Env Designer | Defines validated, typed startup configuration with explicit defaults and separate handling for secrets and settings. |
-| [typescript-unit-tester](typescript-unit-tester/) | TypeScript Unit Tester | Tests TypeScript modules with Bun or Vitest using focused assertions, boundary mocks, deterministic inputs, and coverage goals. |
-| [integration-tester](integration-tester/) | Integration Tester | Tests complete agent and CLI flows with scripted model transports, tool fixtures, golden comparisons, and flake controls. |
-| [typescript-refactoring-architect](typescript-refactoring-architect/) | TypeScript Refactoring Architect | Preserves behavior while improving TypeScript module boundaries, reuse, dependency direction, and public APIs through tested mechanical changes. |
-| [typescript-security-auditor](typescript-security-auditor/) | TypeScript Security Auditor | Reviews TypeScript and Node.js for OWASP risks such as injection, prototype pollution, SSRF, secret exposure, and unsafe dependencies. |
-| [program-performance-optimizer](program-performance-optimizer/) | Program Performance Optimizer | Measures bottlenecks before ranking and applying I/O, caching, and batching improvements that preserve correctness and security. |
+Integration testing, observability, configuration and model clients have complete workflow contracts with conditional stack references. Nine specialist skills retain their technical scope with discovery and verification guidance. `frontend-contract-engineer` covers frontend contracts and publishing interfaces. All 14 can be installed independently with their local references; no required sibling skills exist.
 
-## Status and provenance
+<!-- catalog:start -->
+| Skill | Purpose and trigger |
+| --- | --- |
+| [agentic-loop-engineer](agentic-loop-engineer/SKILL.md) | Engineers reliable agent tool-calling loops with iteration caps, parallel vs sequential execution, tool-class retry classification, tool-error shaping, history growth control, token budgets, and deterministic termination. |
+| [tool-registry-architect](tool-registry-architect/SKILL.md) | Designs the tool registry for an agent runner: typed tool schemas (Zod or JSON Schema), capability flags (read/write/exec/network), input validation, per-tool timeouts with AbortSignal propagation, normalized result shape, and audit logging. |
+| [secure-filesystem-access](secure-filesystem-access/SKILL.md) | Designs and reviews safe filesystem access for agents and CLIs: workspace roots, input-boundary decoding, control-byte rejection, realpath and symlink escape defenses, O_NOFOLLOW, same-descriptor metadata checks with explicit race limitations, bounded reads, write-parent checks, threat-aware scoped caches, size and MIME guards, temp-directory isolation, and sandbox options (subprocess, container, chroot). |
+| [config-and-env-designer](config-and-env-designer/SKILL.md) | Design validated configuration and secret handling for TypeScript or Python applications. |
+| [observability-designer](observability-designer/SKILL.md) | Design logs, metrics and traces for browser, service, CLI and AI workflows in TypeScript or Python. |
+| [integration-tester](integration-tester/SKILL.md) | Design and run deterministic integration tests across real application boundaries in TypeScript or Python, including UI interactions, API contracts, agent flows and stream cancellation. |
+| [frontend-contract-engineer](frontend-contract-engineer/SKILL.md) | Implement or repair an existing frontend or publishing interface from explicit state, content and interaction contracts. |
+| [llm-client-architect](llm-client-architect/SKILL.md) | Design TypeScript or Python provider adapters with explicit model capabilities, bounded retries, cancellation, streaming, fallback and usage attribution. |
+| [prompt-engineer](prompt-engineer/SKILL.md) | Crafts system, user, and tool-role prompts with structured outputs, few-shot examples, chain-of-thought boundaries, JSON contracts, and safe refusal patterns. |
+| [typescript-cli-architect](typescript-cli-architect/SKILL.md) | Designs TypeScript CLIs around the existing parser, process lifecycle and output contracts. |
+| [typescript-unit-tester](typescript-unit-tester/SKILL.md) | Writes and reviews TypeScript unit tests using the project's existing runner, boundary mocks and deterministic fixtures. |
+| [typescript-refactoring-architect](typescript-refactoring-architect/SKILL.md) | Plans and executes behavior-preserving TypeScript refactors for modularity and reusability: existing coverage or focused characterization, small mechanical steps, module boundary and public-export discipline, dependency direction, dead-code and circular-dep detection, generic-type reusability, dependency injection at adapter seams, and codemods via ts-morph or jscodeshift. |
+| [typescript-security-auditor](typescript-security-auditor/SKILL.md) | Audits TypeScript and Node.js code for OWASP Top 10 risks including injection, prototype pollution, SSRF, secret leakage, and supply-chain exposure. |
+| [program-performance-optimizer](program-performance-optimizer/SKILL.md) | Optimizes programs by measuring first, identifying hot paths, and applying async I/O, caching tiers, and batching with ROI-ranked recommendations—never trading away correctness or security for speed. |
+<!-- catalog:end -->
 
-These skills are Markdown instructions and illustrative code patterns. Apply them to the conventions of your target project, run its checks, and review security-sensitive changes before deployment. The collection has not been validated across every agent host, provider, or operating system.
+## Maintenance and evidence
 
-The router, boundary table, and FAQ were prepared with AI assistance from the tracked skill files. The FAQ contains maintainer-written explanations. Each skill and its reference files remain the source of truth for its scope. The usage walkthrough illustrates selection and verification expectations; results must be measured in the target project.
+```bash
+python3 scripts/catalog.py
+python3 -m unittest discover -s tests -v
+```
 
-## License
+Python 3.12+ is supported for repository tooling. See [contributing](CONTRIBUTING.md), [architecture](docs/architecture.md), [follow-up work](https://github.com/Ensive/skills/issues), and [verification procedure](tests/README.md). Assistant documentation sources and compatibility levels are in [compatibility](docs/compatibility.md).
 
-[MIT](LICENSE) — Copyright (c) 2026 Anton Honcharuk.
+Owned content is [MIT licensed](LICENSE). The skill distribution contains only catalog-owned packages; ignored third-party installations remain local and untracked. See [provenance](docs/provenance.md) for source and data restrictions.

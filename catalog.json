@@ -1,0 +1,104 @@
+{
+  "schema_version": 1,
+  "skills": [
+    {
+      "name": "agentic-loop-engineer",
+      "lane": "Agent runtime",
+      "migration": "portability",
+      "requires": []
+    },
+    {
+      "name": "tool-registry-architect",
+      "lane": "Agent runtime",
+      "migration": "portability",
+      "requires": []
+    },
+    {
+      "name": "secure-filesystem-access",
+      "lane": "Agent runtime",
+      "migration": "portability",
+      "requires": []
+    },
+    {
+      "name": "config-and-env-designer",
+      "lane": "Application foundations",
+      "migration": "contract",
+      "requires": []
+    },
+    {
+      "name": "observability-designer",
+      "lane": "Application foundations",
+      "migration": "contract",
+      "requires": []
+    },
+    {
+      "name": "integration-tester",
+      "lane": "Application foundations",
+      "migration": "contract",
+      "requires": []
+    },
+    {
+      "name": "frontend-contract-engineer",
+      "lane": "Application foundations",
+      "migration": "contract",
+      "requires": []
+    },
+    {
+      "name": "llm-client-architect",
+      "lane": "Model I/O",
+      "migration": "contract",
+      "requires": []
+    },
+    {
+      "name": "prompt-engineer",
+      "lane": "Model I/O",
+      "migration": "portability",
+      "requires": []
+    },
+    {
+      "name": "typescript-cli-architect",
+      "lane": "TypeScript delivery",
+      "migration": "portability",
+      "requires": []
+    },
+    {
+      "name": "typescript-unit-tester",
+      "lane": "TypeScript delivery",
+      "migration": "portability",
+      "requires": []
+    },
+    {
+      "name": "typescript-refactoring-architect",
+      "lane": "TypeScript delivery",
+      "migration": "portability",
+      "requires": []
+    },
+    {
+      "name": "typescript-security-auditor",
+      "lane": "TypeScript delivery",
+      "migration": "portability",
+      "requires": []
+    },
+    {
+      "name": "program-performance-optimizer",
+      "lane": "Performance",
+      "migration": "portability",
+      "requires": []
+    }
+  ],
+  "bundles": {
+    "service-foundation": [
+      "config-and-env-designer",
+      "observability-designer",
+      "integration-tester"
+    ],
+    "frontend": [
+      "frontend-contract-engineer",
+      "integration-tester"
+    ],
+    "model-adapter": [
+      "llm-client-architect",
+      "integration-tester"
+    ]
+  }
+}

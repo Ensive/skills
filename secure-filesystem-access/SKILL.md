@@ -2,9 +2,9 @@
 name: secure-filesystem-access
 description: >-
   Designs and reviews safe filesystem access for agents and CLIs: workspace roots,
-  path normalization (NFC, percent-decode, control-byte rejection), realpath and
-  symlink escape defenses, O_NOFOLLOW, TOCTOU-safe open-then-fstat patterns, bounded
-  reads, safe-write parent realpath, scoped realpath caches, size and MIME guards,
+  input-boundary decoding, control-byte rejection, realpath and
+  symlink escape defenses, O_NOFOLLOW, same-descriptor metadata checks with explicit race limitations, bounded
+  reads, write-parent checks, threat-aware scoped caches, size and MIME guards,
   temp-directory isolation, and sandbox options (subprocess, container, chroot).
   Use when implementing or fixing read/write/delete/list agent tools, building the
   path pipeline, "path traversal", "symlink escape", "TOCTOU", "O_NOFOLLOW",
@@ -14,6 +14,10 @@ description: >-
 ---
 
 # Secure Filesystem Access
+
+## Project discovery
+
+Read applicable project instructions, manifests, nearby code/tests and CI. Discover paths, runtime, contracts, data restrictions and commands with working directories. Preserve existing stack choices; adapt the examples to those conventions. Use a reversible step when context is incomplete; ask only when behavior or authorization blocks it. Optional neighbors are not prerequisites.
 
 ## When to use
 
@@ -39,8 +43,8 @@ description: >-
 ## Checklist
 
 - [ ] Document workspace root source (cwd, config, env) and whether it can change mid-run.
-- [ ] Normalize path string to NFC before any comparison or resolve (Unicode homoglyph bypass).
-- [ ] Percent-decode path once (reject double-encoding); re-run prefix guard after decode.
+- [ ] Define filename encoding and normalization from the filesystem/API contract. NFC is not a homoglyph defense and may change filename identity.
+- [ ] Decode URL-encoded input exactly once at its transport boundary, only if the API contract requires it; validate decoded bytes. Literal filesystem paths must not be URL-decoded by default.
 - [ ] Reject NUL and control bytes `0x00`–`0x1F` in path strings; reject overlong path segments.
 - [ ] Reject absolute paths and `..` segments before resolve.
 - [ ] After `resolve`, assert `resolved === workspaceRoot || resolved.startsWith(workspaceRoot + sep)`.
@@ -55,87 +59,56 @@ description: >-
 
 ## Patterns
 
-**Normalize path for trust (checklist step 1 — before resolve)**
+Node/POSIX-oriented examples for a root whose ancestors are not attacker-mutable. These are not a race-proof sandbox. `realpath` then `open` can race; `O_NOFOLLOW` protects only the final component. `fstat` describes the opened object, not whether it stayed beneath the root. For hostile mutable trees, require OS-enforced containment or verified descriptor-relative traversal; do not claim this path recipe is sufficient.
+
+
+**Node path validation and bounded read (trusted ancestor directories)**
 
 ```typescript
-const MAX_PATH_LEN = 4096;
+import path from "node:path";
+import fs from "node:fs/promises";
 
-function normalizePathForTrust(raw: string): string {
-  if (raw.includes("\0") || /[\x00-\x1f]/.test(raw)) {
-    throw new Error("invalid path characters");
-  }
-  if (raw.length > MAX_PATH_LEN) throw new Error("path too long");
-  let p = raw.normalize("NFC");
-  try {
-    p = decodeURIComponent(p);
-  } catch {
-    throw new Error("invalid percent-encoding");
-  }
-  // Reject only when a second decode changes the string (true double-encoding).
-  try {
-    const twice = decodeURIComponent(p);
-    if (twice !== p) throw new Error("double-encoded path");
-  } catch (e) {
-    if (e instanceof Error && e.message === "double-encoded path") throw e;
-  }
-  return p;
-}
-```
-
-Call `normalizePathForTrust` on user input, then `assertInsideRoot` + `realpath` below.
-
-**Prefix guard after resolve**
-
-```typescript
-function assertInsideRoot(workspaceRoot: string, targetPath: string): string {
-  const safe = normalizePathForTrust(targetPath);
-  const root = path.resolve(workspaceRoot);
-  const resolved = path.resolve(root, safe);
-  const prefix = root.endsWith(path.sep) ? root : root + path.sep;
-  if (resolved !== root && !resolved.startsWith(prefix)) {
+function assertInsideRoot(root: string, candidate: string): string {
+  const relative = path.relative(root, candidate);
+  if (relative === ".." || relative.startsWith(".." + path.sep) || path.isAbsolute(relative))
     throw new Error("path outside workspace");
-  }
-  return resolved;
+  return candidate;
 }
-```
 
-**Resolve inside workspace (export for tool-registry)**
-
-```typescript
 async function resolveInside(workspaceRoot: string, raw: string): Promise<string> {
-  const resolved = assertInsideRoot(workspaceRoot, raw);
-  const real = await fs.promises.realpath(resolved);
-  assertInsideRoot(workspaceRoot, real);
-  return real;
+  if (/[\x00-\x1f]/.test(raw) || raw.length > 4096 || path.isAbsolute(raw))
+    throw new Error("invalid path");
+  // Reject traversal syntax by contract; literal percent characters are unchanged.
+  if (raw.split(/[\\/]/).includes("..")) throw new Error("invalid path");
+  const root = await fs.realpath(workspaceRoot);
+  const candidate = assertInsideRoot(root, path.resolve(root, raw));
+  return assertInsideRoot(root, await fs.realpath(candidate));
 }
-```
 
-Export `resolveInside` and `readBounded` from your FS module; full export contract in `reference.md`.
-
-**Bounded read with TOCTOU-safe fstat**
-
-`fd.readFile()` after a stat trusts the file size between two syscalls; for untrusted input, cap during the read itself.
-
-```typescript
 async function readBounded(real: string, maxBytes: number): Promise<Buffer> {
-  const fd = await fs.promises.open(real, "r");
+  if (!Number.isSafeInteger(maxBytes) || maxBytes < 0 || maxBytes > 1_048_576)
+    throw new Error("invalid byte limit");
+  const fd = await fs.open(real, "r");
   try {
     const st = await fd.stat();
-    if (st.size > maxBytes) throw new Error("file too large");
-    const buf = Buffer.allocUnsafe(Math.min(st.size, maxBytes) + 1);
+    if (!st.isFile() || st.size > maxBytes) throw new Error("invalid file or size");
+    // Allocate against the cap, not a possibly stale initial stat size.
+    const buf = Buffer.alloc(maxBytes + 1);
     let read = 0;
     while (read < buf.length) {
       const { bytesRead } = await fd.read(buf, read, buf.length - read, read);
       if (bytesRead === 0) break;
       read += bytesRead;
-      if (read > maxBytes) throw new Error("file grew past cap during read");
     }
-    return buf.subarray(0, Math.min(read, maxBytes));
+    if (read > maxBytes) throw new Error("file exceeds cap");
+    return buf.subarray(0, read);
   } finally {
     await fd.close();
   }
 }
 ```
+
+Resolve the path once using the actual transport contract. This bounded read does not prevent ancestor swaps, hard-link exposure, blocking special-file opens or changes after EOF. Use trusted immutable test directories for this example; strengthen the OS boundary for adversarial writers. Choose Windows-specific policy for drive paths, alternate streams and case/normalization rules rather than claiming POSIX parity.
 
 **Read-only tool default**
 
@@ -148,7 +121,7 @@ if (operation === "write" && !ctx.allowWrite) {
 ## Anti-patterns
 
 - **Checking `includes("..")` only** — bypass via encoding or absolute paths; use resolve + prefix.
-- **Stat path then open path separately** — TOCTOU swap; open-then-stat on same fd.
+- **Treating open-then-stat as containment** — it avoids stale metadata but does not prevent path swaps; enforce the OS threat boundary separately.
 - **Trusting user-supplied `workspaceRoot` without validation** — attacker-chosen root; fix config source.
 - **Following symlinks blindly** — escape via link; realpath and deny link chains outside root.
 - **Reading unbounded files into memory** — DoS; stream with size cap.
@@ -168,13 +141,13 @@ if (operation === "write" && !ctx.allowWrite) {
 - Max size: <bytes> | Max lines: <n>
 
 ## Path pipeline
-1. NFC + percent-decode + control-byte rejection (`normalizePathForTrust`)
+1. Decode only at the declared input boundary; validate resulting characters
 2. resolve + prefix guard (`assertInsideRoot`)
 3. realpath + re-assert prefix
-4. open + fstat on same fd (reads) or parent realpath + O_NOFOLLOW (writes)
+4. Open + same-fd metadata checks; state mutable-ancestor limitations and OS containment
 
 ## Threat coverage
-Use the table template in `reference.md`. Map `done/gap` to auditor severities per `typescript-security-auditor` § Cross-skill reporting.
+Use the table template in [reference.md](reference.md). Map `done/gap` to auditor severities per `typescript-security-auditor` § Cross-skill reporting.
 
 ## Gaps and follow-ups
 - <item>
@@ -182,7 +155,17 @@ Use the table template in `reference.md`. Map `done/gap` to auditor severities p
 
 ## Escalation
 
-- Ask for workspace root source and whether writes or deletes are required.
-- Ask target OS if recommending seccomp, AppArmor, or containers.
+- Discover the workspace root, allowed operations and target OS; ask only when an unresolved trust boundary blocks implementation.
 - Proceed with read-only patterns when scope is unclear; flag write paths as high risk.
-- Safe write, scoped realpath cache, and export contract: `reference.md`.
+- Safe write, scoped realpath cache, and export contract: [reference.md](reference.md).
+
+## Tools and verification
+
+Use existing tools and synthetic fixtures within the task's authorization. If execution is unavailable, provide the check and mark it unexecuted. Report changed artifacts, assumptions, exact commands/cwd, results and remaining gaps; verify the affected success/failure boundary and project conventions. Examples do not authorize downloads or external mutations.
+
+## Handoffs
+
+Required sibling skills: none. Local references are implementation examples, included with this skill.
+
+- Optional: `typescript-security-auditor` — Review the wider threat model and severity for TypeScript systems.
+- Optional: `program-performance-optimizer` — Measure a bottleneck before considering a scoped path cache.
